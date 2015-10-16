@@ -2,7 +2,7 @@
 
 ConstructR utilizes [etcd](https://github.com/coreos/etcd) to automate creating or joining an [Akka](http://akka.io) cluster. It stores each member node under the key `/constructr/nodes/$address` where `$address` is a Base64 encoded Akka `Address`. These keys expire after a configurable time in order to avoid stale information. Therefore ConstructR refreshes each key periodically. 
 
-ConstructR is a state machine which first tries to get the nodes from etcd. If none are available it tries to acquire a lock (CAS write) and uses itself or retries getting the nodes. Then it joins using these nodes as seed nodes. After that it adds its address to the nodes and starts the refresh loop:
+In a nutshell, ConstructR is a state machine which first tries to get the nodes from etcd. If none are available it tries to acquire a lock (CAS write) and uses itself or retries getting the nodes. Then it joins using these nodes as seed nodes. After that it adds its address to the nodes and starts the refresh loop:
  
 ```
      ┌───────────────────┐              ┌───────────────────┐
@@ -31,6 +31,21 @@ ConstructR is a state machine which first tries to get the nodes from etcd. If n
 ```
 
 If something goes wrong, e.g. a timeout when interacting with etcd, ConstructR by default stops the `ActorSystem`. This can be changed by providing a custom `SupervisorStrategy` to the manually started `Constructr` actor (see below), but be sure you know what you are doing. 
+
+## Getting ConstructR
+
+ConstructR is published to Bintray and Maven Central.
+
+``` scala
+// All releases including intermediate ones are published here,
+// final ones are also published to Maven Central.
+resolvers += Resolver.bintrayRepo("hseeberger", "maven")
+
+libraryDependencies ++= List(
+  "de.heikoseeberger" %% "constructr" % "0.1.0",
+  ...
+)
+```
 
 ## Usage
 
