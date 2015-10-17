@@ -43,9 +43,9 @@ libraryDependencies ++= List(
   "com.typesafe.akka"        %% "akka-http-spray-json-experimental" % akkaHttpVersion,
   "de.heikoseeberger"        %% "akka-log4j"                        % "1.0.1",
   "io.spray"                 %% "spray-json"                        % "1.3.2",
-  "com.typesafe.akka"        %% "akka-testkit"                      % akkaVersion     % "test",
   "com.typesafe.akka"        %% "akka-http-testkit-experimental"    % akkaHttpVersion % "test",
   "com.typesafe.akka"        %% "akka-multi-node-testkit"           % akkaVersion     % "test",
+  "com.typesafe.akka"        %% "akka-testkit"                      % akkaVersion     % "test",
   "org.apache.logging.log4j" %  "log4j-core"                        % "2.3"           % "test",
   "org.scalacheck"           %% "scalacheck"                        % "1.12.5"        % "test",
   "org.scalatest"            %% "scalatest"                         % "2.2.5"         % "test"
@@ -58,17 +58,16 @@ initialCommands := """|import de.heikoseeberger.constructr._
 
 test.in(Test) := { test.in(MultiJvm).value; test.in(Test).value }
 
-git.baseVersion := "0.1.0"
+git.baseVersion := "0.2.0"
 
 import scalariform.formatter.preferences._
 preferences := preferences.value
   .setPreference(AlignSingleLineCaseStatements, true)
   .setPreference(AlignSingleLineCaseStatements.MaxArrowIndent, 100)
   .setPreference(DoubleIndentClassDeclaration, true)
-  inConfig(MultiJvm)(SbtScalariform.configScalariformSettings)
-  inConfig(MultiJvm)(compileInputs.in(compile) := { format.value; compileInputs.in(compile).value })
+inConfig(MultiJvm)(SbtScalariform.configScalariformSettings)
+inConfig(MultiJvm)(compileInputs.in(compile) := { format.value; compileInputs.in(compile).value })
 
-import de.heikoseeberger.sbtheader.license.Apache2_0
-HeaderPlugin.autoImport.headers := Map("scala" -> Apache2_0("2015", "Heiko Seeberger"))
+headers := Map("scala" -> de.heikoseeberger.sbtheader.license.Apache2_0("2015", "Heiko Seeberger"))
 AutomateHeaderPlugin.automateFor(Compile, Test, MultiJvm)
 HeaderPlugin.settingsFor(Compile, Test, MultiJvm)
