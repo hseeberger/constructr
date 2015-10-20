@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets.UTF_8
 import java.util.Base64
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.duration.DurationInt
 
 object ConstructrMachine {
 
@@ -44,11 +45,11 @@ object ConstructrMachine {
     case object Refreshing extends State
   }
 
-  sealed abstract class JoinFailure(message: String) extends RuntimeException(message)
-  object JoinFailure {
+  sealed abstract class ConstructrMachineFailure(message: String) extends RuntimeException(message)
+  object ConstructrMachineFailure {
     case class UnexpectedStatusCode(transition: (State, State), statusCode: StatusCode)
-      extends JoinFailure(s"Unexpected status code $statusCode on transition $transition!")
-    case class StateTimeout(state: State) extends JoinFailure(s"State timeout triggered in state $state!")
+      extends ConstructrMachineFailure(s"Unexpected status code $statusCode on transition $transition!")
+    case class StateTimeout(state: State) extends ConstructrMachineFailure(s"State timeout triggered in state $state!")
   }
 
   private case object Locked
@@ -125,7 +126,7 @@ final class ConstructrMachine(
       def getNodes() = send(Get(nodesUri)).flatMap {
         case HttpResponse(OK, _, entity, _)       => unmarshalNodes(entity)
         case HttpResponse(NotFound, _, entity, _) => ignore(entity)(Nil)
-        case HttpResponse(other, _, entity, _)    => ignore(entity)(JoinFailure.UnexpectedStatusCode(transition, other))
+        case HttpResponse(other, _, entity, _)    => ignore(entity)(ConstructrMachineFailure.UnexpectedStatusCode(transition, other))
       }
       getNodes().pipeTo(self)
   }
@@ -160,7 +161,7 @@ final class ConstructrMachine(
       def lock() = send(Put(uri)).flatMap {
         case HttpResponse(Created, _, entity, _)            => ignore(entity)(Locked)
         case HttpResponse(PreconditionFailed, _, entity, _) => ignore(entity)(LockingFailed)
-        case HttpResponse(other, _, entity, _)              => ignore(entity)(throw JoinFailure.UnexpectedStatusCode(transition, other))
+        case HttpResponse(other, _, entity, _)              => ignore(entity)(throw ConstructrMachineFailure.UnexpectedStatusCode(transition, other))
       }
       lock().pipeTo(self)
   }
@@ -201,7 +202,7 @@ final class ConstructrMachine(
       log.debug(s"Transitioning to ${State.AddingSelf}")
       def addSelf() = send(Put(addOrUpdateUri)).flatMap {
         case HttpResponse(Created, _, entity, _) => ignore(entity)(SelfAdded)
-        case HttpResponse(other, _, entity, _)   => ignore(entity)(throw JoinFailure.UnexpectedStatusCode(transition, other))
+        case HttpResponse(other, _, entity, _)   => ignore(entity)(throw ConstructrMachineFailure.UnexpectedStatusCode(transition, other))
       }
       addSelf().pipeTo(self)
   }
@@ -218,7 +219,7 @@ final class ConstructrMachine(
       scheduleRefresh()
   }
 
-  when(State.Refreshing, refreshInterval + etcdTimeout) {
+  when(State.Refreshing, refreshInterval + 1.second + etcdTimeout) { // Allow for some inaccuracy here ... 1 sec should be more than enough
     case Event(Refresh, _) =>
       onRefresh()
       stay()
@@ -232,7 +233,7 @@ final class ConstructrMachine(
   private def onRefresh() = {
     def refresh() = send(Put(addOrUpdateUri)).flatMap {
       case HttpResponse(OK, _, entity, _)    => ignore(entity)(Refreshed)
-      case HttpResponse(other, _, entity, _) => ignore(entity)(throw JoinFailure.UnexpectedStatusCode(State.Refreshing -> State.Refreshing, other))
+      case HttpResponse(other, _, entity, _) => ignore(entity)(throw ConstructrMachineFailure.UnexpectedStatusCode(State.Refreshing -> State.Refreshing, other))
     }
     refresh().pipeTo(self)
   }
@@ -245,7 +246,7 @@ final class ConstructrMachine(
       throw cause
     case Event(StateTimeout, _) =>
       log.error(s"Timeout in state $stateName!")
-      throw JoinFailure.StateTimeout(stateName)
+      throw ConstructrMachineFailure.StateTimeout(stateName)
   }
 
   initialize()
