@@ -42,7 +42,7 @@ ConstructR is published to Bintray and Maven Central.
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= List(
-  "de.heikoseeberger" %% "constructr" % "0.1.0",
+  "de.heikoseeberger" %% "constructr" % "0.1.1",
   ...
 )
 ```
