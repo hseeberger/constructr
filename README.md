@@ -42,7 +42,7 @@ ConstructR is published to Bintray and Maven Central.
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= List(
-  "de.heikoseeberger" %% "constructr" % "0.1.1",
+  "de.heikoseeberger" %% "constructr" % "0.2.0",
   ...
 )
 ```
@@ -65,12 +65,14 @@ The following listing shows the available configuration settings with their defa
 constructr {
   etcd {
     host    = "localhost"
+    host    = ${?CONSTRUCTR_ETCD_HOST}
     port    = 2379
-    timeout = 1 second // Should be quick on localhost
+    port    = ${?CONSTRUCTR_ETCD_PORT}
+    timeout = 5 seconds // Allow for log compaction or other delays – we're not in a hurry here ;-)
   }
 
   join-timeout          = 10 seconds // Might depend on cluster size and network properties
-  retry-get-nodes-delay = 2 seconds  // Retry only makes sense if first member has joined and added self, i.e. related to join-timeout 
+  retry-get-nodes-delay = 2 seconds  // Retry only makes sense if first member has joined and added self, i.e. related to join-timeout
   refresh-interval      = 30 seconds // TTL is refresh-interval * ttl-factor
   ttl-factor            = 1.25       // Must be greater than one!
 }

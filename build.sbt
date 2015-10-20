@@ -58,7 +58,7 @@ initialCommands := """|import de.heikoseeberger.constructr._
 
 test.in(Test) := { test.in(MultiJvm).value; test.in(Test).value }
 
-git.baseVersion := "0.2.0"
+git.baseVersion := "0.3.0"
 
 import scalariform.formatter.preferences._
 preferences := preferences.value
