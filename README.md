@@ -78,6 +78,13 @@ constructr {
 }
 ```
 
+## Testing
+
+Requirements:
+  - `docker` and `docker-machine` have to be installed, e.g. via the [Docker Toolbox](https://www.docker.com/docker-toolbox)
+  - A Docker machine named "default" has to be stated, e.g. via `docker-machine start default`
+  - The Docker environment has to be set up, e.g. via `eval "$(docker-machine env default)"` 
+
 ## Contribution policy ##
 
 Contributions via GitHub pull requests are gladly accepted from their original author. Along with any pull requests, please state that the contribution is your original work and that you license the work to the project under the project's open source license. Whether or not you state this explicitly, by submitting any copyrighted material via pull request, email, or other means you agree to license the material under the project's open source license and warrant that you have the legal authority to do so.
