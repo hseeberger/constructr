@@ -31,8 +31,11 @@ import com.typesafe.config.ConfigFactory
 import org.scalatest.{ BeforeAndAfterAll, FreeSpecLike, Matchers }
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
+import scala.sys.process.{ ProcessLogger, stringToProcess }
 
 object ConstructrMultiNodeConfig extends MultiNodeConfig {
+
+  val host = "docker-machine ip default".!!.trim
 
   val nodes = 1.to(5).to[List].map(n => node(2550 + n))
 
@@ -45,6 +48,7 @@ object ConstructrMultiNodeConfig extends MultiNodeConfig {
           |akka.loglevel                  = "DEBUG"
           |akka.remote.netty.tcp.hostname = "127.0.0.1"
           |akka.remote.netty.tcp.port     = $port
+          |constructr.etcd.host           = $host
           |""".stripMargin
     ))
     node
@@ -66,11 +70,20 @@ abstract class MultiNodeConstructrSpec extends MultiNodeSpec(ConstructrMultiNode
   implicit val mat = ActorMaterializer()
 
   "Constructr should manage an Akka cluster" in {
-    val etcdStatus = Await.result(
-      Http().singleRequest(Delete("http://localhost:2379/v2/keys/constructr?recursive=true")).map(_.status),
-      5.seconds.dilated // As this is the first request fired via `singleRequest`, creating the pool takes some time (probably)
-    )
-    etcdStatus should (be(OK) or be(NotFound))
+    runOn(nodes.head) {
+      "docker rm -f constructr-etcd".!(ProcessLogger(_ => ()))
+      s"""docker run --name constructr-etcd -d -p 2379:2379 quay.io/coreos/etcd:v2.2.1 -advertise-client-urls http://$host:2379 -listen-client-urls http://0.0.0.0:2379""".!
+
+      within(20.seconds.dilated) {
+        awaitAssert {
+          val etcdStatus = Await.result(
+            Http().singleRequest(Delete(s"http://$host:2379/v2/keys/constructr?recursive=true")).map(_.status),
+            5.seconds.dilated // As this is the first request fired via `singleRequest`, creating the pool takes some time (probably)
+          )
+          etcdStatus should (be(OK) or be(NotFound))
+        }
+      }
+    }
 
     enterBarrier("etcd-started")
 
@@ -97,12 +110,18 @@ abstract class MultiNodeConstructrSpec extends MultiNodeSpec(ConstructrMultiNode
       awaitAssert {
         val constructrNodes = Await.result(
           Http()
-            .singleRequest(Get("http://localhost:2379/v2/keys/constructr/MultiNodeConstructrSpec/nodes"))
+            .singleRequest(Get(s"http://$host:2379/v2/keys/constructr/MultiNodeConstructrSpec/nodes"))
             .flatMap(resp => Unmarshal(resp.entity).to[String]),
           1.second.dilated
         )
         nodes.to[Set].map(_.name).foreach(node => constructrNodes should include(node))
       }
+    }
+
+    enterBarrier("done")
+
+    runOn(nodes.head) {
+      "docker rm -f constructr-etcd".!
     }
   }
 
