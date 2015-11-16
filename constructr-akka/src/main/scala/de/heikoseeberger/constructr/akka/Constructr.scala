@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger.constructr
+package de.heikoseeberger.constructr.akka
 
 import akka.actor.{ Actor, ActorLogging, Props, SupervisorStrategy, Terminated }
 import akka.http.scaladsl.Http

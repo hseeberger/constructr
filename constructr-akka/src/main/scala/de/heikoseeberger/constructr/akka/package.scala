@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger
+package de.heikoseeberger.constructr
 
-package object constructr {
+package object akka {
 
   val Traversable = scala.collection.immutable.Traversable
   type Traversable[+A] = scala.collection.immutable.Traversable[A]

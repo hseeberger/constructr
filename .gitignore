@@ -7,7 +7,7 @@ target
 *.sc
 
 # Eclipse
-.cache
+.cache*
 .classpath
 .project
 .scala_dependencies

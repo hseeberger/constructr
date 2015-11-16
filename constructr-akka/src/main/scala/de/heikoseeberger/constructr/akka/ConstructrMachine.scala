@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger.constructr
+package de.heikoseeberger.constructr.akka
 
 import akka.actor.{ ActorLogging, Address, AddressFromURIString, FSM, Props, Status }
 import akka.cluster.{ Cluster, ClusterEvent }
@@ -60,7 +60,7 @@ object ConstructrMachine {
 
   final val Name = "constructr-machine"
 
-  private final val ConstructrKey = "constructr"
+  private final val ConstructrAkkaPath = "constructr/akka"
 
   private final val Nodes = "nodes"
 
@@ -103,9 +103,9 @@ final class ConstructrMachine(
 
   private val cluster = Cluster(context.system)
 
-  private val systemName = context.system.name
+  private val clusterName = context.system.name
 
-  private val baseUri = Uri(s"http://$etcdHost:$etcdPort/v2/keys/$ConstructrKey/$systemName")
+  private val baseUri = Uri(s"http://$etcdHost:$etcdPort/v2/keys/$ConstructrAkkaPath/$clusterName")
 
   private val nodesUri = baseUri.withPath(baseUri.path / Nodes)
 
@@ -140,7 +140,7 @@ final class ConstructrMachine(
     def toNodes(s: String) = {
       import rapture.json._
       import rapture.json.jsonBackends.spray._
-      def toAddress(node: Json) = decodeAddress(node.key.as[String].substring(s"/$ConstructrKey/$systemName/$Nodes/".length))
+      def toAddress(node: Json) = decodeAddress(node.key.as[String].substring(s"/$ConstructrAkkaPath/$clusterName/$Nodes/".length))
       Json.parse(s).node match {
         case json"""{ "nodes": $nodes }""" => nodes.as[List[Json]].map(toAddress)
         case _                             => Nil
