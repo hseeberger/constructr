@@ -18,8 +18,9 @@ package de.heikoseeberger.constructr.akka
 
 import akka.actor.{ Actor, ActorLogging, Props, SupervisorStrategy, Terminated }
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.HttpRequest
 import akka.stream.ActorMaterializer
-import scala.concurrent.duration.{ Duration, MILLISECONDS }
+import de.heikoseeberger.constructr.coordination.Coordination
 
 object Constructr {
 
@@ -28,7 +29,8 @@ object Constructr {
   def props(strategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy): Props = Props(new Constructr(strategy))
 }
 
-final class Constructr(override val supervisorStrategy: SupervisorStrategy) extends Actor with ActorLogging {
+final class Constructr(override val supervisorStrategy: SupervisorStrategy)
+    extends Actor with ActorLogging with ActorSettings {
 
   private val machine = context.watch(createConstructrMachine())
 
@@ -40,18 +42,18 @@ final class Constructr(override val supervisorStrategy: SupervisorStrategy) exte
 
   private def createConstructrMachine() = {
     implicit val mat = ActorMaterializer()
-    val config = context.system.settings.config.getConfig("constructr")
-    def getDuration(key: String) = Duration(config.getDuration(key).toMillis, MILLISECONDS)
+    val send = Http()(context.system).singleRequest(_: HttpRequest)
+    val coordination = Coordination(settings.coordination.backend)(
+      "akka", context.system.name, settings.coordination.host, Integer.valueOf(settings.coordination.port), send
+    )
     context.actorOf(
       ConstructrMachine.props(
-        Http()(context.system).singleRequest(_),
-        config.getString("etcd.host"),
-        config.getInt("etcd.port"),
-        getDuration("etcd.timeout"),
-        getDuration("retry-get-nodes-delay"),
-        getDuration("join-timeout"),
-        getDuration("refresh-interval"),
-        config.getDouble("ttl-factor")
+        coordination,
+        settings.coordinationTimeout,
+        settings.retryGetNodesDelay,
+        settings.joinTimeout,
+        settings.refreshInterval,
+        settings.ttlFactor
       ),
       ConstructrMachine.Name
     )

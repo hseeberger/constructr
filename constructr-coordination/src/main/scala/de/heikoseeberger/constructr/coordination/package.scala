@@ -16,10 +16,12 @@
 
 package de.heikoseeberger.constructr
 
-import _root_.akka.actor.{ Address, AddressFromURIString }
-import de.heikoseeberger.constructr.coordination.Coordination
+import akka.http.scaladsl.model.ResponseEntity
+import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
+import scala.concurrent.ExecutionContext
 
-package object akka {
+package object coordination {
 
   val Traversable = scala.collection.immutable.Traversable
   type Traversable[+A] = scala.collection.immutable.Traversable[A]
@@ -33,8 +35,6 @@ package object akka {
   val IndexedSeq = scala.collection.immutable.IndexedSeq
   type IndexedSeq[+A] = scala.collection.immutable.IndexedSeq[A]
 
-  implicit object AddressSerialization extends Coordination.NodeSerialization[Address] {
-    override def fromString(s: String) = AddressFromURIString(s)
-    override def toString(address: Address) = address.toString
-  }
+  def ignore(entity: ResponseEntity)(implicit ec: ExecutionContext, mat: Materializer) =
+    entity.dataBytes.runWith(Sink.ignore)
 }

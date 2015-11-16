@@ -16,24 +16,14 @@
 
 package de.heikoseeberger.constructr.akka
 
-import akka.actor.{ ActorLogging, Address, AddressFromURIString, FSM, Props, Status }
+import akka.actor.{ ActorLogging, Address, FSM, Props, Status }
 import akka.cluster.{ Cluster, ClusterEvent }
-import akka.http.scaladsl.client.RequestBuilding
-import akka.http.scaladsl.model.StatusCodes.{ Created, NotFound, OK, PreconditionFailed }
-import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, ResponseEntity, StatusCode, Uri }
-import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.pattern.pipe
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
-import java.nio.charset.StandardCharsets.UTF_8
-import java.util.Base64
+import de.heikoseeberger.constructr.coordination.Coordination
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.concurrent.duration.DurationInt
 
 object ConstructrMachine {
-
-  type Send = HttpRequest => Future[HttpResponse]
 
   sealed trait State
   object State {
@@ -42,53 +32,28 @@ object ConstructrMachine {
     case object BeforeGettingNodes extends State
     case object Joining extends State
     case object AddingSelf extends State
+    case object RefreshScheduled extends State
     case object Refreshing extends State
   }
 
-  sealed abstract class ConstructrMachineFailure(message: String) extends RuntimeException(message)
-  object ConstructrMachineFailure {
-    case class UnexpectedStatusCode(transition: (State, State), statusCode: StatusCode)
-      extends ConstructrMachineFailure(s"Unexpected status code $statusCode on transition $transition!")
-    case class StateTimeout(state: State) extends ConstructrMachineFailure(s"State timeout triggered in state $state!")
-  }
-
-  private case object Locked
-  private case object LockingFailed
-  private case object SelfAdded
-  private case object Refresh
-  private case object Refreshed
+  final case class StateTimeout(state: State) extends RuntimeException(s"State timeout triggered in state $state!")
 
   final val Name = "constructr-machine"
 
-  private final val ConstructrAkkaPath = "constructr/akka"
-
-  private final val Nodes = "nodes"
-
   def props(
-    send: ConstructrMachine.Send,
-    etcdHost: String,
-    etcdPort: Int,
-    etcdTimeout: FiniteDuration,
+    coordination: Coordination,
+    coordinationTimeout: FiniteDuration,
     retryGetNodesDelay: FiniteDuration,
     joinTimeout: FiniteDuration,
     refreshInterval: FiniteDuration,
     ttlFactor: Double
   )(implicit mat: Materializer): Props =
-    Props(new ConstructrMachine(send, etcdHost, etcdPort, etcdTimeout, retryGetNodesDelay, joinTimeout, refreshInterval, ttlFactor))
-
-  private def decodeAddress(s: String) = AddressFromURIString(new String(Base64.getUrlDecoder.decode(s), UTF_8))
-
-  private def encodeAddress(address: Address) = Base64.getUrlEncoder.encodeToString(address.toString.getBytes(UTF_8))
-
-  private def ignore[A](entity: ResponseEntity)(a: A)(implicit ec: ExecutionContext, mat: Materializer) =
-    entity.dataBytes.runWith(Sink.ignore).map(_ => a)
+    Props(new ConstructrMachine(coordination, coordinationTimeout, retryGetNodesDelay, joinTimeout, refreshInterval, ttlFactor))
 }
 
 final class ConstructrMachine(
-  send: ConstructrMachine.Send,
-  etcdHost: String,
-  etcdPort: Int,
-  etcdTimeout: FiniteDuration,
+  coordination: Coordination,
+  coordinationTimeout: FiniteDuration,
   retryGetNodesDelay: FiniteDuration,
   joinTimeout: FiniteDuration,
   refreshInterval: FiniteDuration,
@@ -96,79 +61,41 @@ final class ConstructrMachine(
 )(implicit mat: Materializer)
     extends FSM[ConstructrMachine.State, List[Address]] with ActorLogging {
   import ConstructrMachine._
-  import RequestBuilding._
   import context.dispatcher
 
-  require(ttlFactor > 1.0, "ttlFactor must be greater than one!")
+  require(
+    ttlFactor > 1 + coordinationTimeout / refreshInterval,
+    s"ttl-factor must be greater than one plus coordination-timeout divided by refresh-interval, but was $ttlFactor!"
+  )
 
   private val cluster = Cluster(context.system)
 
-  private val clusterName = context.system.name
-
-  private val baseUri = Uri(s"http://$etcdHost:$etcdPort/v2/keys/$ConstructrAkkaPath/$clusterName")
-
-  private val nodesUri = baseUri.withPath(baseUri.path / Nodes)
-
-  private val addOrUpdateUri = {
-    val ttl = (refreshInterval * ttlFactor).toSeconds + 1
-    nodesUri
-      .withPath(nodesUri.path / encodeAddress(cluster.selfAddress))
-      .withQuery("ttl" -> ttl.toString, "value" -> cluster.selfAddress.toString)
-  }
+  private val addOrRefreshTtl = refreshInterval * ttlFactor
 
   startWith(State.GettingNodes, Nil)
 
   // Getting nodes
 
   onTransition {
-    case transition @ _ -> State.GettingNodes =>
-      log.debug(s"Transitioning to ${State.GettingNodes}")
-      def getNodes() = send(Get(nodesUri)).flatMap {
-        case HttpResponse(OK, _, entity, _)       => unmarshalNodes(entity)
-        case HttpResponse(NotFound, _, entity, _) => ignore(entity)(Nil)
-        case HttpResponse(other, _, entity, _)    => ignore(entity)(ConstructrMachineFailure.UnexpectedStatusCode(transition, other))
-      }
-      getNodes().pipeTo(self)
+    case _ -> State.GettingNodes => coordination.getNodes().pipeTo(self)
   }
 
-  when(State.GettingNodes, etcdTimeout) {
+  when(State.GettingNodes, coordinationTimeout) {
     case Event(Nil, _)                             => goto(State.Locking)
     case Event(nodes: List[Address] @unchecked, _) => goto(State.Joining).using(nodes)
-  }
-
-  private def unmarshalNodes(entity: ResponseEntity) = {
-    def toNodes(s: String) = {
-      import rapture.json._
-      import rapture.json.jsonBackends.spray._
-      def toAddress(node: Json) = decodeAddress(node.key.as[String].substring(s"/$ConstructrAkkaPath/$clusterName/$Nodes/".length))
-      Json.parse(s).node match {
-        case json"""{ "nodes": $nodes }""" => nodes.as[List[Json]].map(toAddress)
-        case _                             => Nil
-      }
-    }
-    Unmarshal(entity).to[String].map(toNodes)
   }
 
   // Locking
 
   onTransition {
-    case transition @ _ -> State.Locking =>
-      log.debug(s"Transitioning to ${State.Locking}")
-      val ttl = (2 * etcdTimeout + joinTimeout).toSeconds + 1 // Lock must be kept until self added
-      val uri = baseUri
-        .withPath(baseUri.path / "lock")
-        .withQuery("prevExist" -> "false", "ttl" -> ttl.toString)
-      def lock() = send(Put(uri)).flatMap {
-        case HttpResponse(Created, _, entity, _)            => ignore(entity)(Locked)
-        case HttpResponse(PreconditionFailed, _, entity, _) => ignore(entity)(LockingFailed)
-        case HttpResponse(other, _, entity, _)              => ignore(entity)(throw ConstructrMachineFailure.UnexpectedStatusCode(transition, other))
-      }
-      lock().pipeTo(self)
+    case _ -> State.Locking =>
+      val ttl = 2 * coordinationTimeout + joinTimeout // Keep lock until self added
+      coordination.lock(ttl).pipeTo(self)
   }
 
-  when(State.Locking, etcdTimeout) {
-    case Event(Locked, _)        => goto(State.Joining).using(List(cluster.selfAddress))
-    case Event(LockingFailed, _) => goto(State.BeforeGettingNodes)
+  when(State.Locking, coordinationTimeout) {
+    case Event(Coordination.LockResult.Success, _) => goto(State.Joining).using(List(cluster.selfAddress))
+    case Event(_, _)                               => goto(State.BeforeGettingNodes)
   }
 
   // BeforeGettingNodes
@@ -181,14 +108,12 @@ final class ConstructrMachine(
 
   onTransition {
     case _ -> State.Joining =>
-      log.debug(s"Transitioning to ${State.Joining}")
       cluster.joinSeedNodes(nextStateData) // An existing seed node process would be stopped
       cluster.subscribe(self, ClusterEvent.InitialStateAsEvents, classOf[ClusterEvent.MemberUp])
   }
 
   when(State.Joining, joinTimeout) {
     case Event(ClusterEvent.MemberUp(member), _) if member.address == cluster.selfAddress => goto(State.AddingSelf)
-    case Event(ClusterEvent.MemberUp(member), _)                                          => stay() // Avoid warnings
   }
 
   onTransition {
@@ -198,44 +123,27 @@ final class ConstructrMachine(
   // AddingSelf
 
   onTransition {
-    case transition @ _ -> State.AddingSelf =>
-      log.debug(s"Transitioning to ${State.AddingSelf}")
-      def addSelf() = send(Put(addOrUpdateUri)).flatMap {
-        case HttpResponse(Created, _, entity, _) => ignore(entity)(SelfAdded)
-        case HttpResponse(other, _, entity, _)   => ignore(entity)(throw ConstructrMachineFailure.UnexpectedStatusCode(transition, other))
-      }
-      addSelf().pipeTo(self)
+    case _ -> State.AddingSelf => coordination.addSelf(cluster.selfAddress, addOrRefreshTtl).pipeTo(self)
   }
 
-  when(State.AddingSelf, etcdTimeout) {
-    case Event(SelfAdded, _) => goto(State.Refreshing)
+  when(State.AddingSelf, coordinationTimeout) {
+    case Event(Coordination.SelfAdded, _) => goto(State.RefreshScheduled)
+  }
+
+  // RefreshScheduled
+
+  when(State.RefreshScheduled, refreshInterval) {
+    case Event(StateTimeout, _) => goto(State.Refreshing)
   }
 
   // Refreshing
 
   onTransition {
-    case _ -> State.Refreshing =>
-      log.debug(s"Transitioning to ${State.Refreshing}")
-      scheduleRefresh()
+    case _ -> State.Refreshing => coordination.refresh(cluster.selfAddress, addOrRefreshTtl).pipeTo(self)
   }
 
-  when(State.Refreshing, refreshInterval + 1.second + etcdTimeout) { // Allow for some inaccuracy here ... 1 sec should be more than enough
-    case Event(Refresh, _) =>
-      onRefresh()
-      stay()
-    case Event(Refreshed, _) =>
-      scheduleRefresh()
-      stay()
-  }
-
-  private def scheduleRefresh() = setTimer("refresh", Refresh, refreshInterval)
-
-  private def onRefresh() = {
-    def refresh() = send(Put(addOrUpdateUri)).flatMap {
-      case HttpResponse(OK, _, entity, _)    => ignore(entity)(Refreshed)
-      case HttpResponse(other, _, entity, _) => ignore(entity)(throw ConstructrMachineFailure.UnexpectedStatusCode(State.Refreshing -> State.Refreshing, other))
-    }
-    refresh().pipeTo(self)
+  when(State.Refreshing, coordinationTimeout) {
+    case Event(Coordination.Refreshed, _) => goto(State.RefreshScheduled)
   }
 
   // Handle failure
@@ -246,7 +154,9 @@ final class ConstructrMachine(
       throw cause
     case Event(StateTimeout, _) =>
       log.error(s"Timeout in state $stateName!")
-      throw ConstructrMachineFailure.StateTimeout(stateName)
+      throw ConstructrMachine.StateTimeout(stateName)
+    case Event(ClusterEvent.MemberUp(_), _) =>
+      stay() // Avoid warnings
   }
 
   initialize()
