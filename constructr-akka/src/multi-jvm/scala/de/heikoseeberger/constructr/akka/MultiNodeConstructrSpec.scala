@@ -48,7 +48,7 @@ object ConstructrMultiNodeConfig extends MultiNodeConfig {
           |akka.loglevel                  = "DEBUG"
           |akka.remote.netty.tcp.hostname = "127.0.0.1"
           |akka.remote.netty.tcp.port     = $port
-          |constructr.etcd.host           = $host""".stripMargin
+          |constructr.coordination.host   = $host""".stripMargin
     ))
     node
   }

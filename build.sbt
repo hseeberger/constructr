@@ -1,11 +1,16 @@
 lazy val constructr = project
   .in(file("."))
   .enablePlugins(GitVersioning)
-  .aggregate(constructrAkka)
+  .aggregate(constructrCoordination, constructrAkka)
+
+lazy val constructrCoordination = project
+  .in(file("constructr-coordination"))
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val constructrAkka = project
   .in(file("constructr-akka"))
   .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(constructrCoordination)
   .configs(MultiJvm)
 
 name := "constructr"
