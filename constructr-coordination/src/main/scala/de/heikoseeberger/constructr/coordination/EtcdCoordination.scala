@@ -36,7 +36,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
 
   private val nodesUri = baseUri.withPath(baseUri.path / "nodes")
 
-  override def getNodes[A: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[A]] = {
+  override def getNodes[A: AddressSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[A]] = {
     def unmarshalNodes(entity: ResponseEntity) = {
       def toNodes(s: String) = {
         import rapture.json._
@@ -44,7 +44,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
         def jsonToNode(json: Json) = {
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
           val key = json.key.as[String].stripPrefix(s"$init/")
-          implicitly[NodeSerialization[A]].fromString(new String(Base64.getUrlDecoder.decode(key), UTF_8))
+          implicitly[AddressSerialization[A]].fromBytes(Base64.getUrlDecoder.decode(key))
         }
         Json.parse(s).node match {
           case json"""{ "nodes": $nodes }""" => nodes.as[List[Json]].map(jsonToNode)
@@ -71,24 +71,21 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
     }
   }
 
-  override def addSelf[A: NodeSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded.type] =
+  override def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded.type] =
     send(Put(addOrRefreshUri(self, ttl))).flatMap {
       case HttpResponse(Created, _, entity, _) => ignore(entity).map(_ => SelfAdded)
       case HttpResponse(other, _, entity, _)   => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
     }
 
-  override def refresh[A: NodeSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed.type] =
+  override def refresh[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed.type] =
     send(Put(addOrRefreshUri(self, ttl))).flatMap {
       case HttpResponse(OK, _, entity, _)    => ignore(entity).map(_ => Refreshed)
       case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
     }
 
-  private def addOrRefreshUri[A: NodeSerialization](self: A, ttl: Duration) = {
-    val selfString = implicitly[NodeSerialization[A]].toString(self)
-    nodesUri
-      .withPath(nodesUri.path / Base64.getUrlEncoder.encodeToString(selfString.getBytes(UTF_8)))
-      .withQuery(Uri.Query("ttl" -> toSeconds(ttl), "value" -> selfString))
-  }
+  private def addOrRefreshUri[A: AddressSerialization](self: A, ttl: Duration) = nodesUri
+    .withPath(nodesUri.path / Base64.getUrlEncoder.encodeToString(implicitly[AddressSerialization[A]].toBytes(self)))
+    .withQuery(Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString))
 
   private def toSeconds(ttl: Duration) = (ttl.toSeconds + 1).toString
 }

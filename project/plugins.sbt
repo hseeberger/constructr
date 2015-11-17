@@ -1,3 +1,4 @@
+addSbtPlugin("com.eed3si9n"      % "sbt-assembly"    % "0.14.0")
 addSbtPlugin("com.jsuereth"      % "sbt-pgp"         % "1.0.0")
 addSbtPlugin("com.typesafe.sbt"  % "sbt-git"         % "0.8.5")
 addSbtPlugin("com.typesafe.sbt"  % "sbt-multi-jvm"   % "0.3.11")

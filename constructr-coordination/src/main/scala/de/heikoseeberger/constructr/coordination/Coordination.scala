@@ -28,9 +28,9 @@ object Coordination {
     case object Etcd extends Backend
   }
 
-  trait NodeSerialization[A] {
-    def fromString(s: String): A
-    def toString(a: A): String
+  trait AddressSerialization[A] {
+    def fromBytes(bytes: Array[Byte]): A
+    def toBytes(a: A): Array[Byte]
   }
 
   sealed trait LockResult
@@ -53,11 +53,11 @@ object Coordination {
 abstract class Coordination(prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse]) {
   import Coordination._
 
-  def getNodes[A: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[A]]
+  def getNodes[A: AddressSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[A]]
 
   def lock(ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult]
 
-  def addSelf[A: NodeSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded.type]
+  def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded.type]
 
-  def refresh[A: NodeSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed.type]
+  def refresh[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed.type]
 }

@@ -2,13 +2,10 @@ name := "constructr-akka"
 
 libraryDependencies ++= List(
   Library.akkaCluster,
-  Library.akkaHttp,
-  Library.raptureJsonSpray,
   Library.akkaLog4j            % "test",
   Library.akkaMultiNodeTestkit % "test",
   Library.akkaTestkit          % "test",
   Library.log4jCore            % "test",
-  Library.scalaCheck           % "test",
   Library.scalaTest            % "test"
 )
 

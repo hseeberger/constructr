@@ -37,18 +37,18 @@ object ConstructrMultiNodeConfig extends MultiNodeConfig {
 
   val host = "docker-machine ip default".!!.trim
 
-  val nodes = 1.to(5).to[List].map(n => node(2550 + n))
+  val nodes = 1.to(2).to[List].map(n => node(2550 + n))
 
   private def node(port: Int) = {
     commonConfig(ConfigFactory.load())
     val node = role(port.toString)
     nodeConfig(node)(ConfigFactory.parseString(
-      s"""|akka.actor.provider            = akka.cluster.ClusterActorRefProvider
-          |akka.loggers                   = ["de.heikoseeberger.akkalog4j.Log4jLogger"]
-          |akka.loglevel                  = "DEBUG"
-          |akka.remote.netty.tcp.hostname = "127.0.0.1"
-          |akka.remote.netty.tcp.port     = $port
-          |constructr.coordination.host   = $host""".stripMargin
+      s"""|akka.actor.provider               = akka.cluster.ClusterActorRefProvider
+          |akka.loggers                      = ["de.heikoseeberger.akkalog4j.Log4jLogger"]
+          |akka.loglevel                     = "DEBUG"
+          |akka.remote.netty.tcp.hostname    = "127.0.0.1"
+          |akka.remote.netty.tcp.port        = $port
+          |constructr.akka.coordination.host = $host""".stripMargin
     ))
     node
   }
@@ -56,9 +56,9 @@ object ConstructrMultiNodeConfig extends MultiNodeConfig {
 
 class MultiNodeConstructrSpecMultiJvmNode1 extends MultiNodeConstructrSpec
 class MultiNodeConstructrSpecMultiJvmNode2 extends MultiNodeConstructrSpec
-class MultiNodeConstructrSpecMultiJvmNode3 extends MultiNodeConstructrSpec
-class MultiNodeConstructrSpecMultiJvmNode4 extends MultiNodeConstructrSpec
-class MultiNodeConstructrSpecMultiJvmNode5 extends MultiNodeConstructrSpec
+//class MultiNodeConstructrSpecMultiJvmNode3 extends MultiNodeConstructrSpec
+//class MultiNodeConstructrSpecMultiJvmNode4 extends MultiNodeConstructrSpec
+//class MultiNodeConstructrSpecMultiJvmNode5 extends MultiNodeConstructrSpec
 
 abstract class MultiNodeConstructrSpec extends MultiNodeSpec(ConstructrMultiNodeConfig)
     with FreeSpecLike with Matchers with BeforeAndAfterAll {
