@@ -14,16 +14,19 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger.constructr.akka
+package de.heikoseeberger.constructr.machine
 
-import akka.actor.{ ActorLogging, Address, FSM, Props, Status }
-import akka.cluster.{ Cluster, ClusterEvent }
+import akka.actor.{ ActorLogging, FSM, Props, Status }
 import akka.pattern.pipe
 import akka.stream.Materializer
 import de.heikoseeberger.constructr.coordination.Coordination
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object ConstructrMachine {
+
+  type TransitionHandler[A] = PartialFunction[(State, State), Unit]
+
+  type StateFunction[A] = PartialFunction[FSM.Event[List[A]], FSM.State[State, List[A]]]
 
   sealed trait State
   object State {
@@ -36,30 +39,57 @@ object ConstructrMachine {
     case object Refreshing extends State
   }
 
-  final case class StateTimeout(state: State) extends RuntimeException(s"State timeout triggered in state $state!")
+  final case class StateTimeoutException(state: State) extends RuntimeException(s"State timeout triggered in state $state!")
 
   final val Name = "constructr-machine"
 
-  def props(
+  def defaultJoiningTransitionHandler[A](machine: ConstructrMachine[A]): TransitionHandler[A] = PartialFunction.empty
+
+  def defaultJoiningFunction[A](machine: ConstructrMachine[A]): StateFunction[A] = {
+    case machine.Event(machine.StateTimeout, _) => machine.goto(State.AddingSelf)
+  }
+
+  def noopHandler[A](machine: ConstructrMachine[A]): TransitionHandler[A] = PartialFunction.empty
+
+  def props[A: Coordination.AddressSerialization](
+    selfAddress: A,
     coordination: Coordination,
     coordinationTimeout: FiniteDuration,
     retryGetNodesDelay: FiniteDuration,
-    joinTimeout: FiniteDuration,
     refreshInterval: FiniteDuration,
-    ttlFactor: Double
+    ttlFactor: Double,
+    joinTimeout: Option[FiniteDuration] = None,
+    intoJoiningHandler: ConstructrMachine[A] => TransitionHandler[A] = noopHandler[A] _,
+    joiningFunction: ConstructrMachine[A] => StateFunction[A] = defaultJoiningFunction[A] _,
+    outOfJoiningHandler: ConstructrMachine[A] => TransitionHandler[A] = noopHandler[A] _
   )(implicit mat: Materializer): Props =
-    Props(new ConstructrMachine(coordination, coordinationTimeout, retryGetNodesDelay, joinTimeout, refreshInterval, ttlFactor))
+    Props(new ConstructrMachine[A](
+      selfAddress,
+      coordination,
+      coordinationTimeout,
+      retryGetNodesDelay,
+      refreshInterval,
+      ttlFactor,
+      joinTimeout,
+      intoJoiningHandler,
+      joiningFunction,
+      outOfJoiningHandler
+    ))
 }
 
-final class ConstructrMachine(
+final class ConstructrMachine[A: Coordination.AddressSerialization] private (
+  val selfAddress: A,
   coordination: Coordination,
   coordinationTimeout: FiniteDuration,
   retryGetNodesDelay: FiniteDuration,
-  joinTimeout: FiniteDuration,
   refreshInterval: FiniteDuration,
-  ttlFactor: Double
+  ttlFactor: Double,
+  joinTimeout: Option[FiniteDuration],
+  intoJoiningHandler: ConstructrMachine[A] => ConstructrMachine.TransitionHandler[A],
+  joiningFunction: ConstructrMachine[A] => ConstructrMachine.StateFunction[A],
+  outOfJoiningHandler: ConstructrMachine[A] => ConstructrMachine.TransitionHandler[A]
 )(implicit mat: Materializer)
-    extends FSM[ConstructrMachine.State, List[Address]] with ActorLogging {
+    extends FSM[ConstructrMachine.State, List[A]] with ActorLogging {
   import ConstructrMachine._
   import context.dispatcher
 
@@ -67,8 +97,6 @@ final class ConstructrMachine(
     ttlFactor > 1 + coordinationTimeout / refreshInterval,
     s"ttl-factor must be greater than one plus coordination-timeout divided by refresh-interval, but was $ttlFactor!"
   )
-
-  private val cluster = Cluster(context.system)
 
   private val addOrRefreshTtl = refreshInterval * ttlFactor
 
@@ -81,20 +109,20 @@ final class ConstructrMachine(
   }
 
   when(State.GettingNodes, coordinationTimeout) {
-    case Event(Nil, _)                             => goto(State.Locking)
-    case Event(nodes: List[Address] @unchecked, _) => goto(State.Joining).using(nodes)
+    case Event(Nil, _)                       => goto(State.Locking)
+    case Event(nodes: List[A] @unchecked, _) => goto(State.Joining).using(nodes)
   }
 
   // Locking
 
   onTransition {
     case _ -> State.Locking =>
-      val ttl = 2 * coordinationTimeout + joinTimeout // Keep lock until self added
+      val ttl = 2 * coordinationTimeout + joinTimeout.getOrElse(Duration.Zero) // Keep lock until self added
       coordination.lock(ttl).pipeTo(self)
   }
 
   when(State.Locking, coordinationTimeout) {
-    case Event(Coordination.LockResult.Success, _) => goto(State.Joining).using(List(cluster.selfAddress))
+    case Event(Coordination.LockResult.Success, _) => goto(State.Joining).using(List(selfAddress))
     case Event(_, _)                               => goto(State.BeforeGettingNodes)
   }
 
@@ -106,24 +134,16 @@ final class ConstructrMachine(
 
   // Joining
 
-  onTransition {
-    case _ -> State.Joining =>
-      cluster.joinSeedNodes(nextStateData) // An existing seed node process would be stopped
-      cluster.subscribe(self, ClusterEvent.InitialStateAsEvents, classOf[ClusterEvent.MemberUp])
-  }
+  onTransition(intoJoiningHandler(this))
 
-  when(State.Joining, joinTimeout) {
-    case Event(ClusterEvent.MemberUp(member), _) if member.address == cluster.selfAddress => goto(State.AddingSelf)
-  }
+  when(State.Joining, joinTimeout.getOrElse(Duration.Zero))(joiningFunction(this))
 
-  onTransition {
-    case State.Joining -> _ => cluster.unsubscribe(self)
-  }
+  onTransition(outOfJoiningHandler(this))
 
   // AddingSelf
 
   onTransition {
-    case _ -> State.AddingSelf => coordination.addSelf(cluster.selfAddress, addOrRefreshTtl).pipeTo(self)
+    case _ -> State.AddingSelf => coordination.addSelf(selfAddress, addOrRefreshTtl).pipeTo(self)
   }
 
   when(State.AddingSelf, coordinationTimeout) {
@@ -139,7 +159,7 @@ final class ConstructrMachine(
   // Refreshing
 
   onTransition {
-    case _ -> State.Refreshing => coordination.refresh(cluster.selfAddress, addOrRefreshTtl).pipeTo(self)
+    case _ -> State.Refreshing => coordination.refresh(selfAddress, addOrRefreshTtl).pipeTo(self)
   }
 
   when(State.Refreshing, coordinationTimeout) {
@@ -154,9 +174,7 @@ final class ConstructrMachine(
       throw cause
     case Event(StateTimeout, _) =>
       log.error(s"Timeout in state $stateName!")
-      throw ConstructrMachine.StateTimeout(stateName)
-    case Event(ClusterEvent.MemberUp(_), _) =>
-      stay() // Avoid warnings
+      throw ConstructrMachine.StateTimeoutException(stateName)
   }
 
   initialize()

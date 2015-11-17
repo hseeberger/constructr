@@ -14,37 +14,28 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger.constructr.akka
+package de.heikoseeberger.constructr.cassandra
 
-import akka.actor.{ Address, Actor, ActorLogging, Props, SupervisorStrategy, Terminated }
-import akka.cluster.{ ClusterEvent, Cluster }
+import akka.actor.{ Actor, ActorLogging, ActorRef, Props, SupervisorStrategy, Terminated }
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.HttpRequest
 import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
 import de.heikoseeberger.constructr.machine.ConstructrMachine
+import java.net.InetAddress
 
 object Constructr {
 
-  final val Name = "constructr-akka"
+  final val Name = "constructr-cassandra"
+
+  case object GetNodes
+  final case class Nodes(value: List[InetAddress])
 
   def props(strategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy): Props = Props(new Constructr(strategy))
 
-  private def intoJoiningHandler(machine: ConstructrMachine[Address]): ConstructrMachine.TransitionHandler[Address] = {
-    case (_, ConstructrMachine.State.Joining) =>
-      Cluster(machine.context.system).joinSeedNodes(machine.nextStateData) // An existing seed node process would be stopped
-      Cluster(machine.context.system).subscribe(machine.self, ClusterEvent.InitialStateAsEvents, classOf[ClusterEvent.MemberUp])
+  private def intoJoiningHandler(constructr: ActorRef)(machine: ConstructrMachine[InetAddress]): ConstructrMachine.TransitionHandler[InetAddress] = {
+    case (_, ConstructrMachine.State.Joining) => constructr ! Constructr.Nodes(machine.nextStateData)
   }
-
-  def joiningFunction(machine: ConstructrMachine[Address]): ConstructrMachine.StateFunction[Address] = {
-    case machine.Event(ClusterEvent.MemberUp(member), _) if member.address == machine.selfAddress =>
-      machine.goto(ConstructrMachine.State.AddingSelf)
-  }
-
-  private def outOfJoiningHandler(machine: ConstructrMachine[Address]): ConstructrMachine.TransitionHandler[Address] = {
-    case (ConstructrMachine.State.Joining, _) => Cluster(machine.context.system).unsubscribe(machine.self)
-  }
-
 }
 
 final class Constructr private (override val supervisorStrategy: SupervisorStrategy)
@@ -53,7 +44,23 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
 
   private val machine = context.watch(createConstructrMachine())
 
-  override def receive = {
+  private var nodes = Option.empty[Nodes]
+
+  override def receive = waitingForNodes(Set.empty)
+
+  private def waitingForNodes(requesters: Set[ActorRef]): Receive = receiveTerminated.orElse {
+    case GetNodes =>
+      context.become(waitingForNodes(requesters + sender()))
+    case nodes: Nodes =>
+      requesters.foreach(_ ! nodes)
+      context.become(nodesReceived(nodes))
+  }
+
+  private def nodesReceived(nodes: Nodes): Receive = receiveTerminated.orElse {
+    case GetNodes => sender() ! nodes
+  }
+
+  private def receiveTerminated: Receive = {
     case Terminated(`machine`) =>
       log.error("Terminating the system, because constructr-machine has terminated!")
       context.system.terminate()
@@ -63,20 +70,18 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
     implicit val mat = ActorMaterializer()
     val send = Http()(context.system).singleRequest(_: HttpRequest)
     val coordination = Coordination(settings.coordination.backend)(
-      "akka", context.system.name, settings.coordination.host, Integer.valueOf(settings.coordination.port), send
+      "cassandra", settings.clusterName, settings.coordination.host, Integer.valueOf(settings.coordination.port), send
     )
     context.actorOf(
       ConstructrMachine.props(
-        Cluster(context.system).selfAddress,
+        settings.selfAddress,
         coordination,
         settings.coordinationTimeout,
         settings.retryGetNodesDelay,
         settings.refreshInterval,
         settings.ttlFactor,
-        Some(settings.joinTimeout),
-        intoJoiningHandler,
-        joiningFunction,
-        outOfJoiningHandler
+        None,
+        intoJoiningHandler(self)
       ),
       ConstructrMachine.Name
     )

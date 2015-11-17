@@ -4,6 +4,7 @@ object Version {
   final val Akka             = "2.4.0"
   final val AkkaHttp         = "2.0-M1"
   final val AkkaLog4j        = "1.0.2"
+  final val Cassandra        = "2.2.3"
   final val Log4j            = "2.4.1"
   final val RaptureJsonSpray = "1.1.0"
   final val Scala            = "2.11.7"
@@ -18,6 +19,7 @@ object Library {
   val akkaLog4j            = "de.heikoseeberger"        %% "akka-log4j"              % Version.AkkaLog4j
   val akkaMultiNodeTestkit = "com.typesafe.akka"        %% "akka-multi-node-testkit" % Version.Akka
   val akkaTestkit          = "com.typesafe.akka"        %% "akka-testkit"            % Version.Akka
+  val cassandraAll         = "org.apache.cassandra"     %  "cassandra-all"           % Version.Cassandra exclude("commons-logging", "commons-logging")
   val log4jApi             = "org.apache.logging.log4j" %  "log4j-api"               % Version.Log4j
   val log4jCore            = "org.apache.logging.log4j" %  "log4j-core"              % Version.Log4j
   val raptureJsonSpray     = "com.propensive"           %% "rapture-json-spray"      % Version.RaptureJsonSpray

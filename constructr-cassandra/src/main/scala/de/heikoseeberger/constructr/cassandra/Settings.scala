@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger.constructr.akka
+package de.heikoseeberger.constructr.cassandra
 
 import akka.actor.{ Actor, ExtendedActorSystem, Extension, ExtensionKey }
 import de.heikoseeberger.constructr.coordination.Coordination
+import java.net.InetAddress
 import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS }
 
 object Settings extends ExtensionKey[Settings]
@@ -38,9 +39,16 @@ final class Settings private (system: ExtendedActorSystem) extends Extension {
     val port: Int = config.getInt("coordination.port")
   }
 
-  val coordinationTimeout: FiniteDuration = getDuration("coordination-timeout")
+  val selfAddress: InetAddress = {
+    val selfAddress = config.getString("self-address")
+    if (selfAddress.toLowerCase == "auto") InetAddress.getLocalHost else InetAddress.getByName(selfAddress)
+  }
 
-  val joinTimeout: FiniteDuration = getDuration("join-timeout")
+  val clusterName: String = config.getString("cluster-name")
+
+  val seedProviderTimeout: FiniteDuration = getDuration("seed-provider-timeout")
+
+  val coordinationTimeout: FiniteDuration = getDuration("coordination-timeout")
 
   val refreshInterval: FiniteDuration = getDuration("refresh-interval")
 
@@ -55,7 +63,7 @@ final class Settings private (system: ExtendedActorSystem) extends Extension {
     ttlFactor
   }
 
-  private def config = system.settings.config.getConfig("constructr.akka")
+  private def config = system.settings.config.getConfig("constructr.cassandra")
 
   private def getDuration(key: String) = FiniteDuration(config.getDuration(key).toMillis, MILLISECONDS)
 }

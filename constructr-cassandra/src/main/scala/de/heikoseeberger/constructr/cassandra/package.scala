@@ -16,11 +16,10 @@
 
 package de.heikoseeberger.constructr
 
-import _root_.akka.actor.{ Address, AddressFromURIString }
 import de.heikoseeberger.constructr.coordination.Coordination
-import java.nio.charset.StandardCharsets.UTF_8
+import java.net.InetAddress
 
-package object akka {
+package object cassandra {
 
   val Traversable = scala.collection.immutable.Traversable
   type Traversable[+A] = scala.collection.immutable.Traversable[A]
@@ -34,8 +33,8 @@ package object akka {
   val IndexedSeq = scala.collection.immutable.IndexedSeq
   type IndexedSeq[+A] = scala.collection.immutable.IndexedSeq[A]
 
-  implicit object AkkaAddressSerialization extends Coordination.AddressSerialization[Address] {
-    override def fromBytes(bytes: Array[Byte]) = AddressFromURIString(new String(bytes, UTF_8))
-    override def toBytes(address: Address) = address.toString.getBytes(UTF_8)
+  implicit object InetAddressSerialization extends Coordination.AddressSerialization[InetAddress] {
+    override def fromBytes(bytes: Array[Byte]) = InetAddress.getByAddress(bytes)
+    override def toBytes(address: InetAddress) = address.getAddress
   }
 }
