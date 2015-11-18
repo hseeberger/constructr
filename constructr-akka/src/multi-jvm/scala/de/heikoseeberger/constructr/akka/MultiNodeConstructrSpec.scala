@@ -37,7 +37,7 @@ object ConstructrMultiNodeConfig extends MultiNodeConfig {
 
   val host = "docker-machine ip default".!!.trim
 
-  val nodes = 1.to(2).to[List].map(n => node(2550 + n))
+  val nodes = 1.to(5).to[List].map(n => node(2550 + n))
 
   private def node(port: Int) = {
     commonConfig(ConfigFactory.load())
@@ -56,9 +56,9 @@ object ConstructrMultiNodeConfig extends MultiNodeConfig {
 
 class MultiNodeConstructrSpecMultiJvmNode1 extends MultiNodeConstructrSpec
 class MultiNodeConstructrSpecMultiJvmNode2 extends MultiNodeConstructrSpec
-//class MultiNodeConstructrSpecMultiJvmNode3 extends MultiNodeConstructrSpec
-//class MultiNodeConstructrSpecMultiJvmNode4 extends MultiNodeConstructrSpec
-//class MultiNodeConstructrSpecMultiJvmNode5 extends MultiNodeConstructrSpec
+class MultiNodeConstructrSpecMultiJvmNode3 extends MultiNodeConstructrSpec
+class MultiNodeConstructrSpecMultiJvmNode4 extends MultiNodeConstructrSpec
+class MultiNodeConstructrSpecMultiJvmNode5 extends MultiNodeConstructrSpec
 
 abstract class MultiNodeConstructrSpec extends MultiNodeSpec(ConstructrMultiNodeConfig)
     with FreeSpecLike with Matchers with BeforeAndAfterAll {

@@ -22,21 +22,24 @@ import java.util.{ Map => JMap }
 import org.apache.cassandra.locator.SeedProvider
 import scala.collection.JavaConverters.seqAsJavaListConverter
 import scala.concurrent.Await
-import scala.concurrent.duration.{ DurationInt, FiniteDuration }
 
 class ConstructrSeedProvider(params: JMap[String, String]) extends SeedProvider {
 
-  private val system = ActorSystem("constructr")
+  private val system = ActorSystem("constructr-cassandra-system")
 
   private val constructr = system.actorOf(Constructr.props(), Constructr.Name)
 
   override def getSeeds() = {
     import system.dispatcher
     val timeout = Settings(system).seedProviderTimeout
-    val nodes = constructr
-      .ask(Constructr.GetNodes)(timeout)
-      .mapTo[Constructr.Nodes]
-      .map(_.value)
-    Await.result(nodes, timeout).asJava
+    val nodes = Await.result(
+      constructr
+        .ask(Constructr.GetNodes)(timeout)
+        .mapTo[Constructr.Nodes]
+        .map(_.value),
+      timeout
+    )
+    system.log.info(s"Determined these seed nodes: ${nodes.mkString(", ")}")
+    nodes.asJava
   }
 }

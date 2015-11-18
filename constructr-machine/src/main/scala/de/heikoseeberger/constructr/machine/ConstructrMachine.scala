@@ -89,7 +89,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
   joiningFunction: ConstructrMachine[A] => ConstructrMachine.StateFunction[A],
   outOfJoiningHandler: ConstructrMachine[A] => ConstructrMachine.TransitionHandler[A]
 )(implicit mat: Materializer)
-    extends FSM[ConstructrMachine.State, List[A]] with ActorLogging {
+    extends FSM[ConstructrMachine.State, List[A]] {
   import ConstructrMachine._
   import context.dispatcher
 
