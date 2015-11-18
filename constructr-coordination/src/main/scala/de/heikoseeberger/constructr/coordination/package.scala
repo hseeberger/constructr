@@ -19,6 +19,7 @@ package de.heikoseeberger.constructr
 import akka.http.scaladsl.model.ResponseEntity
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import org.apache.commons.codec.binary.Base64
 import scala.concurrent.ExecutionContext
 
 package object coordination {
@@ -37,4 +38,12 @@ package object coordination {
 
   def ignore(entity: ResponseEntity)(implicit ec: ExecutionContext, mat: Materializer) =
     entity.dataBytes.runWith(Sink.ignore)
+
+  // TODO Switch to Java 8 Base64 when moving to Java 8!
+  //def encode(bytes: Array[Byte]): String = Base64.getUrlEncoder.encodeToString(bytes)
+  def encode(bytes: Array[Byte]): String = Base64.encodeBase64String(bytes)
+
+  // TODO Switch to Java 8 Base64 when moving to Java 8!
+  //def decode(s: String): Array[Byte] = Base64.getUrlDecoder.decode(s)
+  def decode(s: String): Array[Byte] = Base64.decodeBase64(s)
 }

@@ -178,4 +178,5 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
   }
 
   initialize()
+  coordination.getNodes().pipeTo(self)
 }

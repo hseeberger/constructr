@@ -21,8 +21,6 @@ import akka.http.scaladsl.model.StatusCodes.{ Created, NotFound, OK, Preconditio
 import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, ResponseEntity, Uri }
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
-import java.nio.charset.StandardCharsets.UTF_8
-import java.util.Base64
 import scala.concurrent.duration.{ Duration, FiniteDuration }
 import scala.concurrent.{ ExecutionContext, Future }
 
@@ -44,7 +42,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
         def jsonToNode(json: Json) = {
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
           val key = json.key.as[String].stripPrefix(s"$init/")
-          implicitly[AddressSerialization[A]].fromBytes(Base64.getUrlDecoder.decode(key))
+          implicitly[AddressSerialization[A]].fromBytes(decode(key))
         }
         Json.parse(s).node match {
           case json"""{ "nodes": $nodes }""" => nodes.as[List[Json]].map(jsonToNode)
@@ -84,7 +82,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
     }
 
   private def addOrRefreshUri[A: AddressSerialization](self: A, ttl: Duration) = nodesUri
-    .withPath(nodesUri.path / Base64.getUrlEncoder.encodeToString(implicitly[AddressSerialization[A]].toBytes(self)))
+    .withPath(nodesUri.path / encode(implicitly[AddressSerialization[A]].toBytes(self)))
     .withQuery(Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString))
 
   private def toSeconds(ttl: Duration) = (ttl.toSeconds + 1).toString
