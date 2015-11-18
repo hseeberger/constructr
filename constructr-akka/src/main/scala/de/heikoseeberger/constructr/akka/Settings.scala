@@ -57,7 +57,7 @@ final class Settings private (system: ExtendedActorSystem) extends Extension {
 
   private def config = system.settings.config.getConfig("constructr.akka")
 
-  private def getDuration(key: String) = FiniteDuration(config.getDuration(key).toMillis, MILLISECONDS)
+  private def getDuration(key: String) = FiniteDuration(config.getDuration(key, MILLISECONDS), MILLISECONDS)
 }
 
 trait ActorSettings { this: Actor =>

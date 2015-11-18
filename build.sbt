@@ -20,7 +20,7 @@ lazy val constructrAkka = project
 
 lazy val constructrCassandra = project
   .in(file("constructr-cassandra"))
-  .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(constructrCoordination, constructrMachine)
 
 name := "constructr"

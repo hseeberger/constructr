@@ -1,3 +1,4 @@
+import bintray.BintrayKeys
 import com.typesafe.sbt.GitPlugin
 import com.typesafe.sbt.SbtScalariform
 import de.heikoseeberger.sbtheader.{ HeaderKey, HeaderPlugin }
@@ -36,7 +37,7 @@ object Build extends AutoPlugin {
         "-unchecked",
         "-deprecation",
         "-language:_",
-        "-target:jvm-1.8",
+        "-target:jvm-1.7",
         "-encoding", "UTF-8"
       ),
       unmanagedSourceDirectories.in(Compile) := List(scalaSource.in(Compile).value),
@@ -52,6 +53,9 @@ object Build extends AutoPlugin {
       GitPlugin.autoImport.git.baseVersion := "0.3.0",
 
       // Header settings
-      HeaderKey.headers := Map("scala" -> Apache2_0("2015", "Heiko Seeberger"))
+      HeaderKey.headers := Map("scala" -> Apache2_0("2015", "Heiko Seeberger")),
+
+      // Bintray settings
+      BintrayKeys.bintrayPackage := "constructr"
     )
 }
