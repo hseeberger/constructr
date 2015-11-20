@@ -21,7 +21,7 @@ import akka.http.scaladsl.model.StatusCodes.{ Created, NotFound, OK, Preconditio
 import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, ResponseEntity, Uri }
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
-import scala.concurrent.duration.{ Duration, FiniteDuration }
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 
 final class EtcdCoordination(prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse])
@@ -58,7 +58,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
     }
   }
 
-  override def lock(ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult] = {
+  override def lock(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult] = {
     val uri = baseUri
       .withPath(baseUri.path / "lock")
       .withQuery(Uri.Query("prevExist" -> "false", "ttl" -> toSeconds(ttl)))

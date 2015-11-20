@@ -18,7 +18,7 @@ package de.heikoseeberger.constructr.coordination
 
 import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, StatusCode }
 import akka.stream.Materializer
-import scala.concurrent.duration.{ Duration, FiniteDuration }
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 
 object Coordination {
@@ -55,7 +55,7 @@ abstract class Coordination(prefix: String, clusterName: String, host: String, p
 
   def getNodes[A: AddressSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[A]]
 
-  def lock(ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult]
+  def lock(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult]
 
   def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded.type]
 

@@ -16,7 +16,7 @@
 
 package de.heikoseeberger.constructr.machine
 
-import akka.actor.{ ActorLogging, FSM, Props, Status }
+import akka.actor.{ FSM, Props, Status }
 import akka.pattern.pipe
 import akka.stream.Materializer
 import de.heikoseeberger.constructr.coordination.Coordination
@@ -117,13 +117,13 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
 
   onTransition {
     case _ -> State.Locking =>
-      val ttl = 2 * coordinationTimeout + joinTimeout.getOrElse(Duration.Zero) // Keep lock until self added
+      val ttl = (2 * coordinationTimeout + joinTimeout.getOrElse(Duration.Zero)) * ttlFactor // Keep lock until self added
       coordination.lock(ttl).pipeTo(self)
   }
 
   when(State.Locking, coordinationTimeout) {
     case Event(Coordination.LockResult.Success, _) => goto(State.Joining).using(List(selfAddress))
-    case Event(_, _)                               => goto(State.BeforeGettingNodes)
+    case Event(Coordination.LockResult.Failure, _) => goto(State.BeforeGettingNodes)
   }
 
   // BeforeGettingNodes
@@ -176,6 +176,8 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
       log.error(s"Timeout in state $stateName!")
       throw ConstructrMachine.StateTimeoutException(stateName)
   }
+
+  // Initialization
 
   initialize()
   coordination.getNodes().pipeTo(self)
