@@ -39,14 +39,7 @@ final class Settings private (system: ExtendedActorSystem) extends Extension {
     val port: Int = config.getInt("coordination.port")
   }
 
-  val selfAddress: InetAddress = {
-    val selfAddress = config.getString("self-address")
-    if (selfAddress.toLowerCase == "auto") InetAddress.getLocalHost else InetAddress.getByName(selfAddress)
-  }
-
-  val clusterName: String = config.getString("cluster-name")
-
-  val seedProviderTimeout: FiniteDuration = getDuration("seed-provider-timeout")
+  val coordinationRetries: Int = config.getInt("coordination-retries")
 
   val coordinationTimeout: FiniteDuration = getDuration("coordination-timeout")
 
@@ -61,6 +54,15 @@ final class Settings private (system: ExtendedActorSystem) extends Extension {
       s"ttl-factor must be greater than one plus coordination-timeout divided by refresh-interval, but was $ttlFactor!"
     )
     ttlFactor
+  }
+
+  val clusterName: String = config.getString("cluster-name")
+
+  val seedProviderTimeout: FiniteDuration = getDuration("seed-provider-timeout")
+
+  val selfAddress: InetAddress = {
+    val selfAddress = config.getString("self-address")
+    if (selfAddress.toLowerCase == "auto") InetAddress.getLocalHost else InetAddress.getByName(selfAddress)
   }
 
   private def config = system.settings.config.getConfig("constructr.cassandra")

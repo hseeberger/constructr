@@ -32,7 +32,7 @@ object Constructr {
 
   private def intoJoiningHandler(machine: ConstructrMachine[Address]): ConstructrMachine.TransitionHandler[Address] = {
     case (_, ConstructrMachine.State.Joining) =>
-      Cluster(machine.context.system).joinSeedNodes(machine.nextStateData) // An existing seed node process would be stopped
+      Cluster(machine.context.system).joinSeedNodes(machine.nextStateData.nodes) // An existing seed node process would be stopped
       Cluster(machine.context.system).subscribe(machine.self, ClusterEvent.InitialStateAsEvents, classOf[ClusterEvent.MemberUp])
   }
 
@@ -70,6 +70,7 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
         Cluster(context.system).selfAddress,
         coordination,
         settings.coordinationTimeout,
+        settings.coordinationRetries,
         settings.retryGetNodesDelay,
         settings.refreshInterval,
         settings.ttlFactor,

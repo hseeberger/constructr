@@ -26,7 +26,7 @@ object ConstructrMachine {
 
   type TransitionHandler[A] = PartialFunction[(State, State), Unit]
 
-  type StateFunction[A] = PartialFunction[FSM.Event[List[A]], FSM.State[State, List[A]]]
+  type StateFunction[A] = PartialFunction[FSM.Event[Data[A]], FSM.State[State, Data[A]]]
 
   sealed trait State
   object State {
@@ -36,7 +36,12 @@ object ConstructrMachine {
     case object Joining extends State
     case object AddingSelf extends State
     case object AddingSelfScheduled extends State
+    case object Retrying extends State
   }
+
+  case class Data[A](nodes: List[A], coordinationRetriesLeft: Int)
+
+  private final case class Retry(state: State)
 
   final case class StateTimeoutException(state: State) extends RuntimeException(s"State timeout triggered in state $state!")
 
@@ -54,6 +59,7 @@ object ConstructrMachine {
     selfAddress: A,
     coordination: Coordination,
     coordinationTimeout: FiniteDuration,
+    coordinationRetries: Int,
     retryGetNodesDelay: FiniteDuration,
     refreshInterval: FiniteDuration,
     ttlFactor: Double,
@@ -66,6 +72,7 @@ object ConstructrMachine {
       selfAddress,
       coordination,
       coordinationTimeout,
+      coordinationRetries,
       retryGetNodesDelay,
       refreshInterval,
       ttlFactor,
@@ -80,6 +87,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
   val selfAddress: A,
   coordination: Coordination,
   coordinationTimeout: FiniteDuration,
+  coordinationRetries: Int,
   retryGetNodesDelay: FiniteDuration,
   refreshInterval: FiniteDuration,
   ttlFactor: Double,
@@ -88,7 +96,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
   joiningFunction: ConstructrMachine[A] => ConstructrMachine.StateFunction[A],
   outOfJoiningHandler: ConstructrMachine[A] => ConstructrMachine.TransitionHandler[A]
 )(implicit mat: Materializer)
-    extends FSM[ConstructrMachine.State, List[A]] {
+    extends FSM[ConstructrMachine.State, ConstructrMachine.Data[A]] {
   import ConstructrMachine._
   import context.dispatcher
 
@@ -99,7 +107,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
 
   private val addOrRefreshTtl = refreshInterval * ttlFactor
 
-  startWith(State.GettingNodes, Nil)
+  startWith(State.GettingNodes, data(Nil))
 
   // Getting nodes
 
@@ -108,8 +116,8 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
   }
 
   when(State.GettingNodes, coordinationTimeout) {
-    case Event(Nil, _)                       => goto(State.Locking)
-    case Event(nodes: List[A] @unchecked, _) => goto(State.Joining).using(nodes)
+    case Event(Nil, _)                       => goto(State.Locking).using(data(Nil))
+    case Event(nodes: List[A] @unchecked, _) => goto(State.Joining).using(data(nodes))
   }
 
   // Locking
@@ -121,8 +129,8 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
   }
 
   when(State.Locking, coordinationTimeout) {
-    case Event(Coordination.LockResult.Success, _) => goto(State.Joining).using(List(selfAddress))
-    case Event(Coordination.LockResult.Failure, _) => goto(State.BeforeGettingNodes)
+    case Event(Coordination.LockResult.Success, _) => goto(State.Joining).using(data(List(selfAddress)))
+    case Event(Coordination.LockResult.Failure, _) => goto(State.BeforeGettingNodes).using(data(Nil))
   }
 
   // BeforeGettingNodes
@@ -146,7 +154,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
   }
 
   when(State.AddingSelf, coordinationTimeout) {
-    case Event(Coordination.SelfAdded, _) => goto(State.AddingSelfScheduled)
+    case Event(Coordination.SelfAdded, _) => goto(State.AddingSelfScheduled).using(stateData.copy(coordinationRetriesLeft = coordinationRetries))
   }
 
   // AddingSelfScheduled
@@ -155,12 +163,24 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
     case Event(StateTimeout, _) => goto(State.AddingSelf)
   }
 
+  // Retrying
+
+  onTransition {
+    case state -> State.Retrying => self ! Retry(state)
+  }
+
+  when(State.Retrying) {
+    case Event(Retry(state), _) => goto(state)
+  }
+
   // Handle failure
 
   whenUnhandled {
     case Event(Status.Failure(cause), _) =>
       log.error(cause, "Unexpected failure!")
       throw cause
+    case Event(StateTimeout, data @ Data(_, n)) if n > 0 =>
+      goto(State.Retrying).using(data.copy(coordinationRetriesLeft = n - 1))
     case Event(StateTimeout, _) =>
       log.error(s"Timeout in state $stateName!")
       throw ConstructrMachine.StateTimeoutException(stateName)
@@ -170,4 +190,8 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
 
   initialize()
   coordination.getNodes().pipeTo(self)
+
+  // Helpers
+
+  private def data(nodes: List[A]) = Data(nodes, coordinationRetries)
 }

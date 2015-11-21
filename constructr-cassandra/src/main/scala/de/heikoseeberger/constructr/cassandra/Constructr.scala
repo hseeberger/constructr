@@ -34,7 +34,7 @@ object Constructr {
   def props(strategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy): Props = Props(new Constructr(strategy))
 
   private def intoJoiningHandler(constructr: ActorRef)(machine: ConstructrMachine[InetAddress]): ConstructrMachine.TransitionHandler[InetAddress] = {
-    case (_, ConstructrMachine.State.Joining) => constructr ! Constructr.Nodes(machine.nextStateData)
+    case (_, ConstructrMachine.State.Joining) => constructr ! Constructr.Nodes(machine.nextStateData.nodes)
   }
 }
 
@@ -43,8 +43,6 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
   import Constructr._
 
   private val machine = context.watch(createConstructrMachine())
-
-  private var nodes = Option.empty[Nodes]
 
   override def receive = waitingForNodes(Set.empty)
 
@@ -77,6 +75,7 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
         settings.selfAddress,
         coordination,
         settings.coordinationTimeout,
+        settings.coordinationRetries,
         settings.retryGetNodesDelay,
         settings.refreshInterval,
         settings.ttlFactor,
