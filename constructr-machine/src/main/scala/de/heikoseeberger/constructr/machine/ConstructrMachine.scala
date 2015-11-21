@@ -35,8 +35,7 @@ object ConstructrMachine {
     case object BeforeGettingNodes extends State
     case object Joining extends State
     case object AddingSelf extends State
-    case object RefreshScheduled extends State
-    case object Refreshing extends State
+    case object AddingSelfScheduled extends State
   }
 
   final case class StateTimeoutException(state: State) extends RuntimeException(s"State timeout triggered in state $state!")
@@ -105,7 +104,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
   // Getting nodes
 
   onTransition {
-    case _ -> State.GettingNodes => coordination.getNodes().pipeTo(self)
+    case State.BeforeGettingNodes -> State.GettingNodes => coordination.getNodes().pipeTo(self)
   }
 
   when(State.GettingNodes, coordinationTimeout) {
@@ -147,23 +146,13 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
   }
 
   when(State.AddingSelf, coordinationTimeout) {
-    case Event(Coordination.SelfAdded, _) => goto(State.RefreshScheduled)
+    case Event(Coordination.SelfAdded, _) => goto(State.AddingSelfScheduled)
   }
 
-  // RefreshScheduled
+  // AddingSelfScheduled
 
-  when(State.RefreshScheduled, refreshInterval) {
-    case Event(StateTimeout, _) => goto(State.Refreshing)
-  }
-
-  // Refreshing
-
-  onTransition {
-    case _ -> State.Refreshing => coordination.refresh(selfAddress, addOrRefreshTtl).pipeTo(self)
-  }
-
-  when(State.Refreshing, coordinationTimeout) {
-    case Event(Coordination.Refreshed, _) => goto(State.RefreshScheduled)
+  when(State.AddingSelfScheduled, refreshInterval) {
+    case Event(StateTimeout, _) => goto(State.AddingSelf)
   }
 
   // Handle failure
