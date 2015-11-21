@@ -71,14 +71,8 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
 
   override def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded.type] =
     send(Put(addOrRefreshUri(self, ttl))).flatMap {
-      case HttpResponse(Created, _, entity, _) => ignore(entity).map(_ => SelfAdded)
-      case HttpResponse(other, _, entity, _)   => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
-    }
-
-  override def refresh[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed.type] =
-    send(Put(addOrRefreshUri(self, ttl))).flatMap {
-      case HttpResponse(OK, _, entity, _)    => ignore(entity).map(_ => Refreshed)
-      case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case HttpResponse(Created | OK, _, entity, _) => ignore(entity).map(_ => SelfAdded)
+      case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
     }
 
   private def addOrRefreshUri[A: AddressSerialization](self: A, ttl: Duration) = nodesUri

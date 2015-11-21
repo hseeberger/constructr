@@ -41,8 +41,6 @@ object Coordination {
 
   case object SelfAdded
 
-  case object Refreshed
-
   case class UnexpectedStatusCode(statusCode: StatusCode) extends RuntimeException(s"Unexpected status code $statusCode!")
 
   def apply(backend: Backend)(prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse]): Coordination = backend match {
@@ -58,6 +56,4 @@ abstract class Coordination(prefix: String, clusterName: String, host: String, p
   def lock(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult]
 
   def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded.type]
-
-  def refresh[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed.type]
 }
