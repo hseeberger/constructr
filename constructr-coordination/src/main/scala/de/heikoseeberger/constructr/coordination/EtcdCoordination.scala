@@ -59,6 +59,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
   }
 
   override def lock(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult] = {
+    // TODO Make idempotent, e.g. by first GETting and comparing the value, just PUTting, if not there with value = self
     val uri = baseUri
       .withPath(baseUri.path / "lock")
       .withQuery(Uri.Query("prevExist" -> "false", "ttl" -> toSeconds(ttl)))

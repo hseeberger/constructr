@@ -38,9 +38,9 @@ final class Settings private (system: ExtendedActorSystem) extends Extension {
     val port: Int = config.getInt("coordination.port")
   }
 
-  val coordinationTimeout: FiniteDuration = getDuration("coordination-timeout")
+  val coordinationRetries: Int = config.getInt("coordination-retries")
 
-  val joinTimeout: FiniteDuration = getDuration("join-timeout")
+  val coordinationTimeout: FiniteDuration = getDuration("coordination-timeout")
 
   val refreshInterval: FiniteDuration = getDuration("refresh-interval")
 
@@ -54,6 +54,8 @@ final class Settings private (system: ExtendedActorSystem) extends Extension {
     )
     ttlFactor
   }
+
+  val joinTimeout: FiniteDuration = getDuration("join-timeout")
 
   private def config = system.settings.config.getConfig("constructr.akka")
 
