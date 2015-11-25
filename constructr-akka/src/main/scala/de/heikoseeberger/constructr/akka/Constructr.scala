@@ -30,18 +30,18 @@ object Constructr {
 
   def props(strategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy): Props = Props(new Constructr(strategy))
 
-  private def intoJoiningHandler(machine: ConstructrMachine[Address]): ConstructrMachine.TransitionHandler[Address] = {
+  private def intoJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]): ConstructrMachine.TransitionHandler[Address] = {
     case (_, ConstructrMachine.State.Joining) =>
       Cluster(machine.context.system).joinSeedNodes(machine.nextStateData.nodes) // An existing seed node process would be stopped
       Cluster(machine.context.system).subscribe(machine.self, ClusterEvent.InitialStateAsEvents, classOf[ClusterEvent.MemberUp])
   }
 
-  def joiningFunction(machine: ConstructrMachine[Address]): ConstructrMachine.StateFunction[Address] = {
+  def joiningFunction[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]): ConstructrMachine.StateFunction[Address, B] = {
     case machine.Event(ClusterEvent.MemberUp(member), _) if member.address == machine.selfAddress =>
       machine.goto(ConstructrMachine.State.AddingSelf)
   }
 
-  private def outOfJoiningHandler(machine: ConstructrMachine[Address]): ConstructrMachine.TransitionHandler[Address] = {
+  private def outOfJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]): ConstructrMachine.TransitionHandler[Address] = {
     case (ConstructrMachine.State.Joining, _) => Cluster(machine.context.system).unsubscribe(machine.self)
   }
 

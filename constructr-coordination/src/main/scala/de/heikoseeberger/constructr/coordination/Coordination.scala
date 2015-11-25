@@ -23,9 +23,14 @@ import scala.concurrent.{ ExecutionContext, Future }
 
 object Coordination {
 
-  sealed trait Backend
+  sealed trait Backend {
+    type Context
+  }
+
   object Backend {
-    case object Etcd extends Backend
+    case object Etcd extends Backend {
+      override type Context = None.type
+    }
   }
 
   trait AddressSerialization[A] {
@@ -39,21 +44,28 @@ object Coordination {
     case object Failure extends LockResult
   }
 
-  case object SelfAdded
+  case class SelfAdded[B <: Coordination.Backend](context: B#Context)
+
+  case class Refreshed[B <: Coordination.Backend](context: B#Context)
 
   case class UnexpectedStatusCode(statusCode: StatusCode) extends RuntimeException(s"Unexpected status code $statusCode!")
 
-  def apply(backend: Backend)(prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse]): Coordination = backend match {
-    case Backend.Etcd => new EtcdCoordination(prefix, clusterName, host, port, send)
-  }
+  def apply[B <: Coordination.Backend](backend: Backend)(prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse]): Coordination[B] =
+    backend match {
+      case Backend.Etcd => new EtcdCoordination(prefix, clusterName, host, port, send).asInstanceOf[Coordination[B]]
+    }
 }
 
-abstract class Coordination(prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse]) {
+abstract class Coordination[B <: Coordination.Backend](prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse]) {
   import Coordination._
 
   def getNodes[A: AddressSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[A]]
 
   def lock(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult]
 
-  def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded.type]
+  def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded[B]]
+
+  def refresh[A: AddressSerialization](self: A, ttl: Duration, context: B#Context)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed[B]]
+
+  def initialBackendContext: B#Context
 }

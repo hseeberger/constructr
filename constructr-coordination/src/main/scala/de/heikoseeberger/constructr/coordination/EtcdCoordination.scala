@@ -25,7 +25,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 
 final class EtcdCoordination(prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse])
-    extends Coordination(prefix, clusterName, host, port, send) {
+    extends Coordination[Coordination.Backend.Etcd.type](prefix, clusterName, host, port, send) {
   import Coordination._
 
   private val kvUri = Uri(s"http://$host:$port/v2/keys")
@@ -70,11 +70,19 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
     }
   }
 
-  override def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded.type] =
+  override def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) =
     send(Put(addOrRefreshUri(self, ttl))).flatMap {
-      case HttpResponse(Created | OK, _, entity, _) => ignore(entity).map(_ => SelfAdded)
-      case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case HttpResponse(Created, _, entity, _) => ignore(entity).map(_ => SelfAdded[Coordination.Backend.Etcd.type](None))
+      case HttpResponse(other, _, entity, _)   => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
     }
+
+  override def refresh[A: AddressSerialization](self: A, ttl: Duration, context: None.type)(implicit ec: ExecutionContext, mat: Materializer) =
+    send(Put(addOrRefreshUri(self, ttl))).flatMap {
+      case HttpResponse(OK, _, entity, _)    => ignore(entity).map(_ => Refreshed[Coordination.Backend.Etcd.type](None))
+      case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+    }
+
+  override def initialBackendContext = None
 
   private def addOrRefreshUri[A: AddressSerialization](self: A, ttl: Duration) = nodesUri
     .withPath(nodesUri.path / encode(implicitly[AddressSerialization[A]].toBytes(self)))
