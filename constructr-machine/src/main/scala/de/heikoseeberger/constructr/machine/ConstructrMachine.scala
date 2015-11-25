@@ -147,7 +147,11 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
   }
 
   when(State.AddingSelf, coordinationTimeout) {
-    case Event(Coordination.SelfAdded(_), _) => goto(State.RefreshScheduled).using(stateData.copy(coordinationRetriesLeft = coordinationRetries))
+    case Event(Coordination.SelfAdded(context: B#Context @unchecked), _) =>
+      goto(State.RefreshScheduled).using(stateData.copy(
+        coordinationRetriesLeft = coordinationRetries,
+        context = context
+      ))
   }
 
   // RefreshScheduled
@@ -157,6 +161,10 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
   }
 
   // Refreshing
+
+  onTransition {
+    case _ -> State.Refreshing => coordination.refresh(selfAddress, addOrRefreshTtl, stateData.context).pipeTo(self)
+  }
 
   when(State.Refreshing, coordinationTimeout) {
     case Event(Coordination.Refreshed(_), _) => goto(State.RefreshScheduled).using(stateData.copy(coordinationRetriesLeft = coordinationRetries))

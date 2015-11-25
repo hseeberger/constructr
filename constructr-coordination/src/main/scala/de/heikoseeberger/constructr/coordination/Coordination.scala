@@ -31,6 +31,10 @@ object Coordination {
     case object Etcd extends Backend {
       override type Context = None.type
     }
+    case object Consul extends Backend {
+      type SessionId = String
+      override type Context = SessionId
+    }
   }
 
   trait AddressSerialization[A] {
@@ -52,7 +56,8 @@ object Coordination {
 
   def apply[B <: Coordination.Backend](backend: Backend)(prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse]): Coordination[B] =
     backend match {
-      case Backend.Etcd => new EtcdCoordination(prefix, clusterName, host, port, send).asInstanceOf[Coordination[B]]
+      case Backend.Etcd   => new EtcdCoordination(prefix, clusterName, host, port, send).asInstanceOf[Coordination[B]]
+      case Backend.Consul => new ConsulCoordination(prefix, clusterName, host, port, send).asInstanceOf[Coordination[B]]
     }
 }
 
