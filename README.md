@@ -1,10 +1,12 @@
 # ConstructR #
 
-This README is a little outdated ... meanwhile there are modules for Akka and Cassandra.
+ConstructR aims at cluster bootstrapping (construction) by using a coordination service. Currently it provides libraries for bootstrapping [Akka](http://akka.io) and [Cassandra](https://cassandra.apache.org) clusters via [etcd](https://github.com/coreos/etcd) ([Consul](https://www.consul.io) support is underway). 
 
-ConstructR utilizes [etcd](https://github.com/coreos/etcd) to automate creating or joining an [Akka](http://akka.io) cluster. It stores each member node under the key `/constructr/nodes/$address` where `$address` is a Base64 encoded Akka `Address`. These keys expire after a configurable time in order to avoid stale information. Therefore ConstructR refreshes each key periodically.
+Disambiguation: ConstructR is not related to [Typesafe ConductR](http://www.typesafe.com/products/conductr), which is a feature-rich and reactive application manager providing deployments, service lookups, health checks and much more. 
 
-In a nutshell, ConstructR is a state machine which first tries to get the nodes from etcd. If none are available it tries to acquire a lock (CAS write) and uses itself or retries getting the nodes. Then it joins using these nodes as seed nodes. After that it adds its address to the nodes and starts the refresh loop:
+ConstructR utilizes a key-value coordination service like etcd to automate bootstrapping or joining a cluster. It stores each member node under the key `/constructr/$prefix/$clusterName/nodes/$address` where `$prefix` represents the system to be clustered, e.g. "akka", `$clusterName` is for disambiguating multiple clusters and `$address` is a Base64 encoded address, e.g. `Address` for Akka. These keys expire after a configurable time in order to avoid stale information. Therefore ConstructR refreshes each key periodically.
+
+In a nutshell, ConstructR is a state machine which first tries to get the nodes from the coordination service. If none are available it tries to acquire a lock, e.g. via a CAS write for etcd, and uses itself or retries getting the nodes. Then it joins using these nodes as seed nodes. After that it adds its address to the nodes and starts the refresh loop:
 
 ```
      ┌───────────────────┐              ┌───────────────────┐
@@ -32,11 +34,11 @@ In a nutshell, ConstructR is a state machine which first tries to get the nodes 
      └───────────────────┘
 ```
 
-If something goes wrong, e.g. a timeout when interacting with etcd, ConstructR by default stops the `ActorSystem`. This can be changed by providing a custom `SupervisorStrategy` to the manually started `Constructr` actor (see below), but be sure you know what you are doing.
+If something goes wrong, e.g. a timeout (after configurable retries are exhausted) when interacting with the coordination service, ConstructR by default terminates its `ActorSystem`. This can be changed by providing a custom `SupervisorStrategy` to the manually started `Constructr` actor (see below), but be sure you know what you are doing.
 
-## Getting ConstructR
+## ConstructR for Akka
 
-ConstructR is published to Bintray and Maven Central.
+constructr-akka depends on Akka 2.3 and is published to Bintray and Maven Central.
 
 ``` scala
 // All releases including intermediate ones are published here,
@@ -44,12 +46,10 @@ ConstructR is published to Bintray and Maven Central.
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= List(
-  "de.heikoseeberger" %% "constructr" % "0.3.0",
+  "de.heikoseeberger" %% "constructr-akka" % "0.3.0",
   ...
 )
 ```
-
-## Usage
 
 Simply add the `ConstructrExtension` to the `extensions` configuration setting:
 
@@ -59,24 +59,72 @@ akka.extensions = ["de.heikoseeberger.constructr.ConstructrExtension"]
 
 This will start the `Constructr` actor as a system actor. Alternatively start it yourself as early as possible if you feel so inclined.
 
-## Configuration
+The following listing shows the available configuration settings with their defaults:
+
+```
+constructr.akka {
+  coordination {
+    backend = "etcd"
+    host    = "localhost"
+    port    = 2379
+  }
+
+  coordination-retries  = 3
+  coordination-timeout  = 3 seconds
+  refresh-interval      = 30 seconds // TTL is refresh-interval * ttl-factor
+  retry-get-nodes-delay = 3 seconds
+  ttl-factor            = 1.5        // Must be greater than 1 + (coordination-timeout / refresh-interval)!
+
+  join-timeout          = 10 seconds // Might depend on cluster size and network properties
+}
+```
+
+## ConstructR for Cassandra
+
+constructr-cassandra depends on Cassandra 2.2.x and is published to Bintray and Maven Central.
+
+``` scala
+// All releases including intermediate ones are published here,
+// final ones are also published to Maven Central.
+resolvers += Resolver.bintrayRepo("hseeberger", "maven")
+
+libraryDependencies ++= List(
+  "de.heikoseeberger" %% "constructr-cassandra" % "0.3.0",
+  ...
+)
+```
+
+Simply (LOL) configure the `ConstructrSeedProvider` under the `seed_provider` configuration setting:
+
+```
+seed_provider:
+    - class_name: de.heikoseeberger.constructr.cassandra.ConstructrSeedProvider
+```
+
+If you want to run Cassandra in Docker, ConstructR provides the [constructr/cassandra-2.2](https://hub.docker.com/r/constructr/cassandra-2.2) Docker image with the necessary configuration.
 
 The following listing shows the available configuration settings with their defaults:
 
 ```
-constructr {
-  etcd {
+constructr.cassandra {
+  coordination {
+    backend = "etcd"
     host    = "localhost"
-    host    = ${?CONSTRUCTR_ETCD_HOST}
+    host    = ${?CASSANDRA_BROADCAST_ADDRESS} // Works for Docker image
     port    = 2379
-    port    = ${?CONSTRUCTR_ETCD_PORT}
-    timeout = 5 seconds // Allow for log compaction or other delays – we're not in a hurry here ;-)
   }
 
-  join-timeout          = 10 seconds // Might depend on cluster size and network properties
+  coordination-retries  = 3
+  coordination-timeout  = 3 seconds
   refresh-interval      = 30 seconds // TTL is refresh-interval * ttl-factor
-  retry-get-nodes-delay = 2 seconds  // Retry only makes sense if first member has joined and added self, i.e. related to join-timeout
-  ttl-factor            = 1.25       // Must be greater than one!
+  retry-get-nodes-delay = 3 seconds
+  ttl-factor            = 1.5        // Must be greater than 1 + (coordination-timeout / refresh-interval)!
+
+  cluster-name          = "default"                       // Must match cluster_name in cassandra.yaml!
+  cluster-name          = ${?CASSANDRA_CLUSTER_NAME}      // Works for Docker image
+  seed-provider-timeout = 20 seconds                      // Should be longer than coordination-timeout
+  self-address          = "auto"                          // "auto" means `InetAddress.getLocalHost`
+  self-address          = ${?CASSANDRA_BROADCAST_ADDRESS} // Works for Docker image
 }
 ```
 
