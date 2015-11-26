@@ -19,12 +19,12 @@ assemblyMergeStrategy.in(assembly) := {
 
 docker                := docker.dependsOn(assembly).value
 version.in(docker)    := "latest"
-imageNames.in(docker) := List(ImageName(namespace = Some("constructr"), repository = "cassandra-2.2", tag = Some(version.in(docker).value)))
+imageNames.in(docker) := List(ImageName(s"constructr/cassandra-${Version.Cassandra}:${version.in(docker).value}"))
 dockerfile.in(docker) := {
   val fatJar = assemblyOutputPath.in(assembly).value
   val fatJarTargetPath = s"/${fatJar.name}"
   new Dockerfile {
-    from("hseeberger/cassandra:2.2")
+    from(s"hseeberger/cassandra:${Version.Cassandra}")
     add(fatJar, fatJarTargetPath)
     env(
       "CASSANDRA_SEED_PROVIDER" -> "de.heikoseeberger.constructr.cassandra.ConstructrSeedProvider",
