@@ -26,7 +26,7 @@ object ConstructrMachine {
 
   type TransitionHandler[A] = PartialFunction[(State, State), Unit]
 
-  type StateFunction[A] = PartialFunction[FSM.Event[Data[A]], FSM.State[State, Data[A]]]
+  type StateFunction[A, B <: Coordination.Backend] = PartialFunction[FSM.Event[Data[A, B]], FSM.State[State, Data[A, B]]]
 
   sealed trait State
   object State {
@@ -35,11 +35,12 @@ object ConstructrMachine {
     case object BeforeGettingNodes extends State
     case object Joining extends State
     case object AddingSelf extends State
-    case object AddingSelfScheduled extends State
+    case object RefreshScheduled extends State
+    case object Refreshing extends State
     case object Retrying extends State
   }
 
-  case class Data[A](nodes: List[A], coordinationRetriesLeft: Int)
+  case class Data[A, B <: Coordination.Backend](nodes: List[A], coordinationRetriesLeft: Int, context: B#Context)
 
   private final case class Retry(state: State)
 
@@ -47,28 +48,20 @@ object ConstructrMachine {
 
   final val Name = "constructr-machine"
 
-  def defaultJoiningTransitionHandler[A](machine: ConstructrMachine[A]): TransitionHandler[A] = PartialFunction.empty
-
-  def defaultJoiningFunction[A](machine: ConstructrMachine[A]): StateFunction[A] = {
-    case machine.Event(machine.StateTimeout, _) => machine.goto(State.AddingSelf)
-  }
-
-  def noopHandler[A](machine: ConstructrMachine[A]): TransitionHandler[A] = PartialFunction.empty
-
-  def props[A: Coordination.AddressSerialization](
+  def props[A: Coordination.AddressSerialization, B <: Coordination.Backend](
     selfAddress: A,
-    coordination: Coordination,
+    coordination: Coordination[B],
     coordinationTimeout: FiniteDuration,
     coordinationRetries: Int,
     retryGetNodesDelay: FiniteDuration,
     refreshInterval: FiniteDuration,
     ttlFactor: Double,
     joinTimeout: Option[FiniteDuration] = None,
-    intoJoiningHandler: ConstructrMachine[A] => TransitionHandler[A] = noopHandler[A] _,
-    joiningFunction: ConstructrMachine[A] => StateFunction[A] = defaultJoiningFunction[A] _,
-    outOfJoiningHandler: ConstructrMachine[A] => TransitionHandler[A] = noopHandler[A] _
+    intoJoiningHandler: ConstructrMachine[A, B] => TransitionHandler[A] = (machine: ConstructrMachine[A, B]) => PartialFunction.empty,
+    joiningFunction: ConstructrMachine[A, B] => StateFunction[A, B] = (machine: ConstructrMachine[A, B]) => { case machine.Event(machine.StateTimeout, _) => machine.goto(State.AddingSelf) }: StateFunction[A, B],
+    outOfJoiningHandler: ConstructrMachine[A, B] => TransitionHandler[A] = (machine: ConstructrMachine[A, B]) => PartialFunction.empty
   )(implicit mat: Materializer): Props =
-    Props(new ConstructrMachine[A](
+    Props(new ConstructrMachine[A, B](
       selfAddress,
       coordination,
       coordinationTimeout,
@@ -83,20 +76,20 @@ object ConstructrMachine {
     ))
 }
 
-final class ConstructrMachine[A: Coordination.AddressSerialization] private (
+final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordination.Backend] private (
   val selfAddress: A,
-  coordination: Coordination,
+  coordination: Coordination[B],
   coordinationTimeout: FiniteDuration,
   coordinationRetries: Int,
   retryGetNodesDelay: FiniteDuration,
   refreshInterval: FiniteDuration,
   ttlFactor: Double,
   joinTimeout: Option[FiniteDuration],
-  intoJoiningHandler: ConstructrMachine[A] => ConstructrMachine.TransitionHandler[A],
-  joiningFunction: ConstructrMachine[A] => ConstructrMachine.StateFunction[A],
-  outOfJoiningHandler: ConstructrMachine[A] => ConstructrMachine.TransitionHandler[A]
+  intoJoiningHandler: ConstructrMachine[A, B] => ConstructrMachine.TransitionHandler[A],
+  joiningFunction: ConstructrMachine[A, B] => ConstructrMachine.StateFunction[A, B],
+  outOfJoiningHandler: ConstructrMachine[A, B] => ConstructrMachine.TransitionHandler[A]
 )(implicit mat: Materializer)
-    extends FSM[ConstructrMachine.State, ConstructrMachine.Data[A]] {
+    extends FSM[ConstructrMachine.State, ConstructrMachine.Data[A, B]] {
   import ConstructrMachine._
   import context.dispatcher
 
@@ -154,13 +147,19 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
   }
 
   when(State.AddingSelf, coordinationTimeout) {
-    case Event(Coordination.SelfAdded, _) => goto(State.AddingSelfScheduled).using(stateData.copy(coordinationRetriesLeft = coordinationRetries))
+    case Event(Coordination.SelfAdded(_), _) => goto(State.RefreshScheduled).using(stateData.copy(coordinationRetriesLeft = coordinationRetries))
   }
 
-  // AddingSelfScheduled
+  // RefreshScheduled
 
-  when(State.AddingSelfScheduled, refreshInterval) {
-    case Event(StateTimeout, _) => goto(State.AddingSelf)
+  when(State.RefreshScheduled, refreshInterval) {
+    case Event(StateTimeout, _) => goto(State.Refreshing)
+  }
+
+  // Refreshing
+
+  when(State.Refreshing, coordinationTimeout) {
+    case Event(Coordination.Refreshed(_), _) => goto(State.RefreshScheduled).using(stateData.copy(coordinationRetriesLeft = coordinationRetries))
   }
 
   // Retrying
@@ -179,7 +178,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
     case Event(Status.Failure(cause), _) =>
       log.error(cause, "Unexpected failure!")
       throw cause
-    case Event(StateTimeout, data @ Data(_, n)) if n > 0 =>
+    case Event(StateTimeout, data @ Data(_, n, _)) if n > 0 =>
       goto(State.Retrying).using(data.copy(coordinationRetriesLeft = n - 1))
     case Event(StateTimeout, _) =>
       log.error(s"Timeout in state $stateName!")
@@ -193,5 +192,5 @@ final class ConstructrMachine[A: Coordination.AddressSerialization] private (
 
   // Helpers
 
-  private def data(nodes: List[A]) = Data(nodes, coordinationRetries)
+  private def data(nodes: List[A]) = Data(nodes, coordinationRetries, coordination.initialBackendContext)
 }
