@@ -28,8 +28,9 @@ final class Settings private (system: ExtendedActorSystem) extends Extension {
 
     val backend: Coordination.Backend = {
       config.getString("coordination.backend").toLowerCase match {
-        case "etcd" => Coordination.Backend.Etcd
-        case other  => throw new IllegalArgumentException(s"Unknown coordination backend $other!")
+        case "etcd"   => Coordination.Backend.Etcd
+        case "consul" => Coordination.Backend.Consul
+        case other    => throw new IllegalArgumentException(s"Unknown coordination backend $other!")
       }
     }
 
