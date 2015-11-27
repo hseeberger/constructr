@@ -61,7 +61,7 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
   private def receiveTerminated: Receive = {
     case Terminated(`machine`) =>
       log.error("Terminating the system, because constructr-machine has terminated!")
-      context.system.shutdown()
+      context.system.terminate()
   }
 
   private def createConstructrMachine() = {
