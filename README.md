@@ -1,6 +1,6 @@
 # ConstructR #
 
-ConstructR aims at cluster bootstrapping (construction) by using a coordination service. Currently it provides libraries for bootstrapping [Akka](http://akka.io) and [Cassandra](https://cassandra.apache.org) clusters via [etcd](https://github.com/coreos/etcd) ([Consul](https://www.consul.io) support is underway). 
+ConstructR aims at cluster bootstrapping (construction) by using a coordination service. Currently it provides libraries for bootstrapping [Akka](http://akka.io) and [Cassandra](https://cassandra.apache.org) clusters via [etcd](https://github.com/coreos/etcd) and [Consul](https://www.consul.io). 
 
 Disambiguation: ConstructR is not related to [Typesafe ConductR](http://www.typesafe.com/products/conductr), which is a feature-rich and reactive application manager providing deployments, service lookups, health checks and much more. 
 
@@ -34,7 +34,7 @@ In a nutshell, ConstructR is a state machine which first tries to get the nodes 
      └───────────────────┘
 ```
 
-If something goes wrong, e.g. a timeout (after configurable retries are exhausted) when interacting with the coordination service, ConstructR by default terminates its `ActorSystem`. This can be changed by providing a custom `SupervisorStrategy` to the manually started `Constructr` actor (see below), but be sure you know what you are doing.
+If something goes wrong, e.g. a timeout (after configurable retries are exhausted) when interacting with the coordination service, ConstructR by default terminates its `ActorSystem`. At least for constructr-akka this can be changed by providing a custom `SupervisorStrategy` to the manually started `Constructr` actor, but be sure you know what you are doing.
 
 ## ConstructR for Akka
 
@@ -46,7 +46,7 @@ constructr-akka depends on Akka 2.3 and is published to Bintray and Maven Centra
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= List(
-  "de.heikoseeberger" %% "constructr-akka" % "0.3.0",
+  "de.heikoseeberger" %% "constructr-akka" % "0.4.0",
   ...
 )
 ```
@@ -64,7 +64,7 @@ The following listing shows the available configuration settings with their defa
 ```
 constructr.akka {
   coordination {
-    backend = "etcd"
+    backend = "etcd" // or "consul"
     host    = "localhost"
     port    = 2379
   }
@@ -108,7 +108,7 @@ The following listing shows the available configuration settings with their defa
 ```
 constructr.cassandra {
   coordination {
-    backend = "etcd"
+    backend = "etcd" // or "consul"
     host    = "localhost"
     host    = ${?CASSANDRA_BROADCAST_ADDRESS} // Works for Docker image
     port    = 2379
