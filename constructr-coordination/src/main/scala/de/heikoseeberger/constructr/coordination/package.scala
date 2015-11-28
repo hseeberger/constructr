@@ -21,6 +21,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import java.util.Base64
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
 
 package object coordination {
 
@@ -42,4 +43,6 @@ package object coordination {
   def encode(bytes: Array[Byte]): String = Base64.getUrlEncoder.encodeToString(bytes)
 
   def decode(s: String): Array[Byte] = Base64.getUrlDecoder.decode(s)
+
+  def toSeconds(duration: Duration) = (duration.toSeconds + 1).toString
 }

@@ -87,6 +87,4 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
   private def addOrRefreshUri[A: AddressSerialization](self: A, ttl: Duration) = nodesUri
     .withPath(nodesUri.path / encode(implicitly[AddressSerialization[A]].toBytes(self)))
     .withQuery(Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString))
-
-  private def toSeconds(ttl: Duration) = (ttl.toSeconds + 1).toString
 }

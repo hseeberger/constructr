@@ -100,7 +100,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
 
   private val addOrRefreshTtl = refreshInterval * ttlFactor
 
-  startWith(State.GettingNodes, data(Nil))
+  startWith(State.GettingNodes, Data(Nil, coordinationRetries, coordination.initialBackendContext))
 
   // Getting nodes
 
@@ -109,8 +109,8 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
   }
 
   when(State.GettingNodes, coordinationTimeout) {
-    case Event(Nil, _)                       => goto(State.Locking).using(data(Nil))
-    case Event(nodes: List[A] @unchecked, _) => goto(State.Joining).using(data(nodes))
+    case Event(Nil, data)                       => goto(State.Locking).using(data.copy(Nil, coordinationRetries))
+    case Event(nodes: List[A] @unchecked, data) => goto(State.Joining).using(data.copy(nodes, coordinationRetries))
   }
 
   // Locking
@@ -122,8 +122,8 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
   }
 
   when(State.Locking, coordinationTimeout) {
-    case Event(Coordination.LockResult.Success, _) => goto(State.Joining).using(data(List(selfAddress)))
-    case Event(Coordination.LockResult.Failure, _) => goto(State.BeforeGettingNodes).using(data(Nil))
+    case Event(Coordination.LockResult.Success, data) => goto(State.Joining).using(data.copy(List(selfAddress), coordinationRetries))
+    case Event(Coordination.LockResult.Failure, data) => goto(State.BeforeGettingNodes).using(data.copy(Nil, coordinationRetries))
   }
 
   // BeforeGettingNodes
@@ -147,11 +147,8 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
   }
 
   when(State.AddingSelf, coordinationTimeout) {
-    case Event(Coordination.SelfAdded(context: B#Context @unchecked), _) =>
-      goto(State.RefreshScheduled).using(stateData.copy(
-        coordinationRetriesLeft = coordinationRetries,
-        context = context
-      ))
+    case Event(Coordination.SelfAdded(context: B#Context @unchecked), data) =>
+      goto(State.RefreshScheduled).using(data.copy(coordinationRetriesLeft = coordinationRetries, context = context))
   }
 
   // RefreshScheduled
@@ -197,8 +194,4 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
 
   initialize()
   coordination.getNodes().pipeTo(self)
-
-  // Helpers
-
-  private def data(nodes: List[A]) = Data(nodes, coordinationRetries, coordination.initialBackendContext)
 }
