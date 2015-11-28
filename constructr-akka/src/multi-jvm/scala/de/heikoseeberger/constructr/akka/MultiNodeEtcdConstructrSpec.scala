@@ -33,7 +33,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 import scala.sys.process.{ ProcessLogger, stringToProcess }
 
-object ConstructrMultiNodeConfig extends MultiNodeConfig {
+object EtcdConstructrMultiNodeConfig extends MultiNodeConfig {
 
   val host = "docker-machine ip default".!!.trim
 
@@ -54,15 +54,15 @@ object ConstructrMultiNodeConfig extends MultiNodeConfig {
   }
 }
 
-class MultiNodeConstructrSpecMultiJvmNode1 extends MultiNodeConstructrSpec
-class MultiNodeConstructrSpecMultiJvmNode2 extends MultiNodeConstructrSpec
-class MultiNodeConstructrSpecMultiJvmNode3 extends MultiNodeConstructrSpec
-class MultiNodeConstructrSpecMultiJvmNode4 extends MultiNodeConstructrSpec
-class MultiNodeConstructrSpecMultiJvmNode5 extends MultiNodeConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode1 extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode2 extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode3 extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode4 extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode5 extends MultiNodeEtcdConstructrSpec
 
-abstract class MultiNodeConstructrSpec extends MultiNodeSpec(ConstructrMultiNodeConfig)
+abstract class MultiNodeEtcdConstructrSpec extends MultiNodeSpec(EtcdConstructrMultiNodeConfig)
     with FreeSpecLike with Matchers with BeforeAndAfterAll {
-  import ConstructrMultiNodeConfig._
+  import EtcdConstructrMultiNodeConfig._
   import RequestBuilding._
   import system.dispatcher
 
@@ -109,7 +109,7 @@ abstract class MultiNodeConstructrSpec extends MultiNodeSpec(ConstructrMultiNode
       awaitAssert {
         val constructrNodes = Await.result(
           Http()
-            .singleRequest(Get(s"http://$host:2379/v2/keys/constructr/akka/MultiNodeConstructrSpec/nodes"))
+            .singleRequest(Get(s"http://$host:2379/v2/keys/constructr/akka/MultiNodeEtcdConstructrSpec/nodes"))
             .flatMap(resp => Unmarshal(resp.entity).to[String]),
           1.second.dilated
         )

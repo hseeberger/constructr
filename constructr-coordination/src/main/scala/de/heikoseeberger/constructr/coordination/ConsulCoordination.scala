@@ -32,6 +32,8 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
 
   private val kvUri = v1Uri.withPath(v1Uri.path / "kv")
 
+  private val sessionUri = v1Uri.withPath(v1Uri.path / "session")
+
   private val baseUri = kvUri.withPath(kvUri.path / "constructr" / prefix / clusterName)
 
   private val nodesUri = baseUri.withPath(baseUri.path / "nodes")
@@ -50,8 +52,8 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
       }
       Unmarshal(entity).to[String].map(toNodes)
     }
-    val nodesUriRecursiveUri = nodesUri.withQuery(Uri.Query("recurse"))
-    send(Get(nodesUriRecursiveUri)).flatMap {
+    val uri = nodesUri.withQuery(Uri.Query("recurse"))
+    send(Get(uri)).flatMap {
       case HttpResponse(OK, _, entity, _)       => unmarshalNodes(entity)
       case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => Nil)
       case HttpResponse(other, _, entity, _)    => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
@@ -59,25 +61,30 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
   }
 
   override def lock(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult] = {
+    def uri(sessionId: String) = baseUri
+      .withPath(baseUri.path / "lock")
+      .withQuery(Uri.Query("acquire" -> sessionId))
     val responseAndSession = for {
       sessionId <- createSession(ttl)
-      response <- send(Put(lockUri(sessionId)))
+      response <- send(Put(uri(sessionId)))
     } yield (response, sessionId)
     responseAndSession.flatMap {
-      case (HttpResponse(OK, _, entity, _), _) => {
+      case (HttpResponse(OK, _, entity, _), _) =>
         Unmarshal(entity).to[String]
           .map(_.toBoolean)
-          .map(locked => if (locked) LockResult.Success else LockResult.Failure)
-      }
+          .map(isLocked => if (isLocked) LockResult.Success else LockResult.Failure)
       case (HttpResponse(other, _, entity, _), _) =>
         ignore(entity).map(_ => throw UnexpectedStatusCode(other))
     }
   }
 
   override def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) = {
+    def uri(sessionId: String) = nodesUri
+      .withPath(nodesUri.path / encode(implicitly[AddressSerialization[A]].toBytes(self)))
+      .withQuery(Uri.Query("acquire" -> sessionId))
     val responseAndSession = for {
       sessionId <- createSession(ttl)
-      response <- send(Put(addOrRefreshUri(sessionId, self)))
+      response <- send(Put(uri(sessionId)))
     } yield (response, sessionId)
     responseAndSession.flatMap {
       case (HttpResponse(OK, _, entity, _), sessionId) => ignore(entity).map(_ => SelfAdded[Coordination.Backend.Consul.type](sessionId))
@@ -85,45 +92,31 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  override def refresh[A: AddressSerialization](self: A, ttl: Duration, context: String)(implicit ec: ExecutionContext, mat: Materializer) = {
-    send(Put(renewSessionUri(context))).flatMap {
-      case HttpResponse(OK, _, entity, _)    => ignore(entity).map(_ => Refreshed[Coordination.Backend.Consul.type](context))
+  override def refresh[A: AddressSerialization](self: A, ttl: Duration, sessionId: String)(implicit ec: ExecutionContext, mat: Materializer) = {
+    val uri = sessionUri.withPath(sessionUri.path / "renew" / sessionId)
+    send(Put(uri)).flatMap {
+      case HttpResponse(OK, _, entity, _)    => ignore(entity).map(_ => Refreshed[Coordination.Backend.Consul.type](sessionId))
       case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
     }
   }
 
   override def initialBackendContext = ""
 
-  private def lockUri(sessionId: String) = baseUri
-    .withPath(baseUri.path / "lock")
-    .withQuery(Uri.Query("acquire" -> sessionId))
-
-  private def addOrRefreshUri[A: AddressSerialization](sessionId: String, self: A) = nodesUri
-    .withPath(nodesUri.path / encode(implicitly[AddressSerialization[A]].toBytes(self)))
-    .withQuery(Uri.Query("acquire" -> sessionId))
-
-  private def renewSessionUri(sessionId: String) = kvUri.withPath(kvUri.path / "session" / "renew" / sessionId)
-
-  private def unmarshalSession(entity: ResponseEntity)(implicit ec: ExecutionContext, mat: Materializer) = {
-    def toSession(s: String) = {
-      import rapture.json._
-      import rapture.json.jsonBackends.spray._
-      Json.parse(s).ID.as[String]
-    }
-    Unmarshal(entity).to[String].map(toSession)
-  }
-
   private def createSession(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) = {
-    val createSessionUri = v1Uri
-      .withPath(v1Uri.path / "session" / "create")
+    def unmarshalSession(entity: ResponseEntity)(implicit ec: ExecutionContext, mat: Materializer) = {
+      def toSession(s: String) = {
+        import rapture.json._
+        import rapture.json.jsonBackends.spray._
+        Json.parse(s).ID.as[String]
+      }
+      Unmarshal(entity).to[String].map(toSession)
+    }
+    val createSessionUri = sessionUri
+      .withPath(sessionUri.path / "create")
       .withQuery(Uri.Query("Behaviour" -> "delete", "ttl" -> toSeconds(ttl)))
     send(Put(createSessionUri)).flatMap {
-      case HttpResponse(OK, _, entity, _) =>
-        unmarshalSession(entity)
-      case HttpResponse(other, _, entity, _) =>
-        ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case HttpResponse(OK, _, entity, _)    => unmarshalSession(entity)
+      case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
     }
   }
-
-  private def toSeconds(ttl: Duration) = (ttl.toSeconds + 1).toString
 }

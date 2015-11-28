@@ -58,15 +58,15 @@ object ConstructrMultiNodeConfigConsul extends MultiNodeConfig {
   }
 }
 
-class MultiNodeConstructrSpecConsulMultiJvmNode1 extends MultiNodeConstructrSpecConsul
-class MultiNodeConstructrSpecConsulMultiJvmNode2 extends MultiNodeConstructrSpecConsul
-class MultiNodeConstructrSpecConsulMultiJvmNode3 extends MultiNodeConstructrSpecConsul
-class MultiNodeConstructrSpecConsulMultiJvmNode4 extends MultiNodeConstructrSpecConsul
-class MultiNodeConstructrSpecConsulMultiJvmNode5 extends MultiNodeConstructrSpecConsul
+class MultiNodeConsulConstructrSpecMultiJvmNode1 extends MultiNodeConsulConstructrSpec
+class MultiNodeConsulConstructrSpecMultiJvmNode2 extends MultiNodeConsulConstructrSpec
+class MultiNodeConsulConstructrSpecMultiJvmNode3 extends MultiNodeConsulConstructrSpec
+class MultiNodeConsulConstructrSpecMultiJvmNode4 extends MultiNodeConsulConstructrSpec
+class MultiNodeConsulConstructrSpecMultiJvmNode5 extends MultiNodeConsulConstructrSpec
 
-abstract class MultiNodeConstructrSpecConsul[A: AddressSerialization] extends MultiNodeSpec(ConstructrMultiNodeConfigConsul)
+abstract class MultiNodeConsulConstructrSpec[A: AddressSerialization] extends MultiNodeSpec(ConstructrMultiNodeConfigConsul)
     with FreeSpecLike with Matchers with BeforeAndAfterAll {
-  import ConstructrMultiNodeConfig._
+  import EtcdConstructrMultiNodeConfig._
   import RequestBuilding._
   import system.dispatcher
 
@@ -113,7 +113,7 @@ abstract class MultiNodeConstructrSpecConsul[A: AddressSerialization] extends Mu
       awaitAssert {
         val constructrNodes = Await.result(
           Http()
-            .singleRequest(Get(s"http://$host:8500/v1/kv/constructr/akka/MultiNodeConstructrSpecConsul/nodes/?recurse"))
+            .singleRequest(Get(s"http://$host:8500/v1/kv/constructr/akka/MultiNodeConsulConstructrSpec/nodes/?recurse"))
             .flatMap(resp => Unmarshal(resp).to[String].map(toNodes)),
           1.second.dilated
         )
@@ -132,7 +132,7 @@ abstract class MultiNodeConstructrSpecConsul[A: AddressSerialization] extends Mu
     import rapture.json._
     import rapture.json.jsonBackends.spray._
     def jsonToNode(json: Json) = {
-      implicitly[AddressSerialization[A]].fromBytes(decode(json.Key.as[String].substring("constructr/akka/MultiNodeConstructrSpecConsul/nodes/".length)))
+      implicitly[AddressSerialization[A]].fromBytes(decode(json.Key.as[String].substring("constructr/akka/MultiNodeConsulConstructrSpec/nodes/".length)))
     }
     Json.parse(s).as[List[Json]].map(jsonToNode)
   }
