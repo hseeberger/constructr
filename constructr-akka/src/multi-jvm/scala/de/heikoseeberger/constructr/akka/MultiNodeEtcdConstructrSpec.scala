@@ -88,11 +88,13 @@ abstract class MultiNodeEtcdConstructrSpec extends MultiNodeSpec(EtcdConstructrM
 
     ConstructrExtension(system)
     val listener = actor(new Act {
+      import ClusterEvent._
       var isMember = false
-      Cluster(context.system).subscribe(self, ClusterEvent.InitialStateAsEvents, classOf[ClusterEvent.MemberUp])
+      Cluster(context.system).subscribe(self, InitialStateAsEvents, classOf[MemberJoined], classOf[MemberUp])
       become {
-        case ClusterEvent.MemberUp(member) if member.address == Cluster(context.system).selfAddress => isMember = true
-        case _                                                                                      => sender() ! isMember
+        case "isMember"                                                                    => sender() ! isMember
+        case MemberJoined(member) if member.address == Cluster(context.system).selfAddress => isMember = true
+        case MemberUp(member) if member.address == Cluster(context.system).selfAddress     => isMember = true
       }
     })
     within(20.seconds.dilated) {

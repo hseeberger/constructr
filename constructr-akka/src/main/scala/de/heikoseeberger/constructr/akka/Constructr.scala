@@ -25,6 +25,7 @@ import de.heikoseeberger.constructr.coordination.Coordination
 import de.heikoseeberger.constructr.machine.ConstructrMachine
 
 object Constructr {
+  import ClusterEvent._
 
   final val Name = "constructr-akka"
 
@@ -33,18 +34,17 @@ object Constructr {
   private def intoJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]): ConstructrMachine.TransitionHandler[Address] = {
     case (_, ConstructrMachine.State.Joining) =>
       Cluster(machine.context.system).joinSeedNodes(machine.nextStateData.nodes) // An existing seed node process would be stopped
-      Cluster(machine.context.system).subscribe(machine.self, ClusterEvent.InitialStateAsEvents, classOf[ClusterEvent.MemberUp])
+      Cluster(machine.context.system).subscribe(machine.self, InitialStateAsEvents, classOf[MemberJoined], classOf[MemberUp])
   }
 
-  def joiningFunction[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]): ConstructrMachine.StateFunction[Address, B] = {
-    case machine.Event(ClusterEvent.MemberUp(member), _) if member.address == machine.selfAddress =>
-      machine.goto(ConstructrMachine.State.AddingSelf)
+  private def joiningFunction[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]): ConstructrMachine.StateFunction[Address, B] = {
+    case machine.Event(MemberJoined(member), _) if member.address == machine.selfAddress => machine.goto(ConstructrMachine.State.AddingSelf)
+    case machine.Event(MemberUp(member), _) if member.address == machine.selfAddress     => machine.goto(ConstructrMachine.State.AddingSelf)
   }
 
   private def outOfJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]): ConstructrMachine.TransitionHandler[Address] = {
     case (ConstructrMachine.State.Joining, _) => Cluster(machine.context.system).unsubscribe(machine.self)
   }
-
 }
 
 final class Constructr private (override val supervisorStrategy: SupervisorStrategy)
