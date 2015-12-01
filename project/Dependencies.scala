@@ -2,7 +2,7 @@ import sbt._
 
 object Version {
   final val Akka             = "2.4.1"
-  final val AkkaHttp         = "2.0-M1"
+  final val AkkaHttp         = "2.0-M2"
   final val AkkaLog4j        = "1.0.2"
   final val Cassandra        = "3.0.0"
   final val Log4j            = "2.4.1"
