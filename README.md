@@ -38,7 +38,7 @@ If something goes wrong, e.g. a timeout (after configurable retries are exhauste
 
 ## ConstructR for Akka
 
-constructr-akka depends on Akka 2.4 and is published to Bintray and Maven Central.
+constructr-akka depends on Akka 2.4.1 and is published to Bintray and Maven Central.
 
 ``` scala
 // All releases including intermediate ones are published here,
@@ -81,7 +81,7 @@ constructr.akka {
 
 ## ConstructR for Cassandra
 
-constructr-cassandra depends on Cassandra 2.2.x and is published to Bintray and Maven Central.
+constructr-cassandra depends on Cassandra 3.0.0 and is published to Bintray and Maven Central.
 
 ``` scala
 // All releases including intermediate ones are published here,
@@ -89,7 +89,7 @@ constructr-cassandra depends on Cassandra 2.2.x and is published to Bintray and 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= List(
-  "de.heikoseeberger" %% "constructr-cassandra" % "0.3.0",
+  "de.heikoseeberger" %% "constructr-cassandra" % "0.5.0",
   ...
 )
 ```
@@ -101,7 +101,7 @@ seed_provider:
     - class_name: de.heikoseeberger.constructr.cassandra.ConstructrSeedProvider
 ```
 
-If you want to run Cassandra in Docker, ConstructR provides the [constructr/cassandra-2.2](https://hub.docker.com/r/constructr/cassandra-2.2) Docker image with the necessary configuration.
+If you want to run Cassandra in Docker, ConstructR provides the [constructr/cassandra-3.0.0](https://hub.docker.com/r/constructr/cassandra-3.0.0) Docker image with the necessary configuration.
 
 The following listing shows the available configuration settings with their defaults:
 
