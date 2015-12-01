@@ -1,8 +1,8 @@
 # ConstructR #
 
-ConstructR aims at cluster bootstrapping (construction) by using a coordination service. Currently it provides libraries for bootstrapping [Akka](http://akka.io) and [Cassandra](https://cassandra.apache.org) clusters via [etcd](https://github.com/coreos/etcd) and [Consul](https://www.consul.io). 
+ConstructR aims at cluster bootstrapping (construction) by using a coordination service. Currently it provides libraries for bootstrapping [Akka](http://akka.io) and [Cassandra](https://cassandra.apache.org) clusters via [etcd](https://github.com/coreos/etcd) and [Consul](https://www.consul.io).
 
-Disambiguation: ConstructR is not related to [Typesafe ConductR](http://www.typesafe.com/products/conductr), which is a feature-rich and reactive application manager providing deployments, service lookups, health checks and much more. 
+Disambiguation: ConstructR is not related to [Typesafe ConductR](http://www.typesafe.com/products/conductr), which is a feature-rich and reactive application manager providing deployments, service lookups, health checks and much more.
 
 ConstructR utilizes a key-value coordination service like etcd to automate bootstrapping or joining a cluster. It stores each member node under the key `/constructr/$prefix/$clusterName/nodes/$address` where `$prefix` represents the system to be clustered, e.g. "akka", `$clusterName` is for disambiguating multiple clusters and `$address` is a Base64 encoded address, e.g. `Address` for Akka. These keys expire after a configurable time in order to avoid stale information. Therefore ConstructR refreshes each key periodically.
 
@@ -38,7 +38,7 @@ If something goes wrong, e.g. a timeout (after configurable retries are exhauste
 
 ## ConstructR for Akka
 
-constructr-akka depends on Akka 2.3 and is published to Bintray and Maven Central.
+constructr-akka depends on Akka 2.4 and is published to Bintray and Maven Central.
 
 ``` scala
 // All releases including intermediate ones are published here,
@@ -46,7 +46,7 @@ constructr-akka depends on Akka 2.3 and is published to Bintray and Maven Centra
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= List(
-  "de.heikoseeberger" %% "constructr-akka" % "0.4.0",
+  "de.heikoseeberger" %% "constructr-akka" % "0.5.0",
   ...
 )
 ```
@@ -133,7 +133,7 @@ constructr.cassandra {
 Requirements:
   - `docker` and `docker-machine` have to be installed, e.g. via the [Docker Toolbox](https://www.docker.com/docker-toolbox)
   - A Docker machine named "default" has to be stated, e.g. via `docker-machine start default`
-  - The Docker environment has to be set up, e.g. via `eval "$(docker-machine env default)"` 
+  - The Docker environment has to be set up, e.g. via `eval "$(docker-machine env default)"`
 
 ## Contribution policy ##
 

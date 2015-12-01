@@ -50,7 +50,7 @@ object Build extends AutoPlugin {
         .setPreference(DoubleIndentClassDeclaration, true),
 
       // Git settings
-      GitPlugin.autoImport.git.baseVersion := "0.5.0",
+      GitPlugin.autoImport.git.baseVersion := "0.6.0",
 
       // Header settings
       HeaderKey.headers := Map("scala" -> Apache2_0("2015", "Heiko Seeberger")),
