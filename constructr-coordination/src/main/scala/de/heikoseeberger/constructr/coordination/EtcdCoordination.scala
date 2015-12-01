@@ -78,8 +78,8 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
 
   override def refresh[A: AddressSerialization](self: A, ttl: Duration, context: None.type)(implicit ec: ExecutionContext, mat: Materializer) =
     send(Put(addOrRefreshUri(self, ttl))).flatMap {
-      case HttpResponse(OK, _, entity, _)    => ignore(entity).map(_ => Refreshed[Coordination.Backend.Etcd.type](None))
-      case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => Refreshed[Coordination.Backend.Etcd.type](None))
+      case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
     }
 
   override def initialBackendContext = None
