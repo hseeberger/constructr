@@ -57,9 +57,9 @@ object ConstructrMachine {
     refreshInterval: FiniteDuration,
     ttlFactor: Double,
     joinTimeout: Option[FiniteDuration] = None,
-    intoJoiningHandler: ConstructrMachine[A, B] => TransitionHandler[A] = (machine: ConstructrMachine[A, B]) => PartialFunction.empty,
+    intoJoiningHandler: ConstructrMachine[A, B] => Unit = (machine: ConstructrMachine[A, B]) => (),
     joiningFunction: ConstructrMachine[A, B] => StateFunction[A, B] = (machine: ConstructrMachine[A, B]) => { case machine.Event(machine.StateTimeout, _) => machine.goto(State.AddingSelf) }: StateFunction[A, B],
-    outOfJoiningHandler: ConstructrMachine[A, B] => TransitionHandler[A] = (machine: ConstructrMachine[A, B]) => PartialFunction.empty
+    outOfJoiningHandler: ConstructrMachine[A, B] => Unit = (machine: ConstructrMachine[A, B]) => ()
   )(implicit mat: Materializer): Props =
     Props(new ConstructrMachine[A, B](
       selfAddress,
@@ -85,17 +85,19 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
   refreshInterval: FiniteDuration,
   ttlFactor: Double,
   joinTimeout: Option[FiniteDuration],
-  intoJoiningHandler: ConstructrMachine[A, B] => ConstructrMachine.TransitionHandler[A],
+  intoJoiningHandler: ConstructrMachine[A, B] => Unit,
   joiningFunction: ConstructrMachine[A, B] => ConstructrMachine.StateFunction[A, B],
-  outOfJoiningHandler: ConstructrMachine[A, B] => ConstructrMachine.TransitionHandler[A]
+  outOfJoiningHandler: ConstructrMachine[A, B] => Unit
 )(implicit mat: Materializer)
     extends FSM[ConstructrMachine.State, ConstructrMachine.Data[A, B]] {
   import ConstructrMachine._
   import context.dispatcher
 
+  private val overallCoordinationTimeout = coordinationTimeout * (1 + coordinationRetries)
+
   require(
-    ttlFactor > 1 + coordinationTimeout / refreshInterval,
-    s"ttl-factor must be greater than one plus coordination-timeout divided by refresh-interval, but was $ttlFactor!"
+    ttlFactor > 1 + overallCoordinationTimeout / refreshInterval,
+    s"ttl-factor must be greater than 1 + (coordination-timeout * (1 + coordination-retries) / refresh-interval), but was $ttlFactor!"
   )
 
   private val addOrRefreshTtl = refreshInterval * ttlFactor
@@ -105,76 +107,120 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
   // Getting nodes
 
   onTransition {
-    case State.BeforeGettingNodes -> State.GettingNodes => coordination.getNodes().pipeTo(self)
+    case State.BeforeGettingNodes -> State.GettingNodes =>
+      log.debug("Transitioning to GettingNodes")
+      coordination.getNodes().pipeTo(self)
   }
 
   when(State.GettingNodes, coordinationTimeout) {
-    case Event(Nil, data)                       => goto(State.Locking).using(data.copy(Nil, coordinationRetries))
-    case Event(nodes: List[A] @unchecked, data) => goto(State.Joining).using(data.copy(nodes, coordinationRetries))
+    case Event(Nil, data) =>
+      log.debug("Received empty nodes, going to Locking")
+      goto(State.Locking).using(data.copy(Nil, coordinationRetries))
+
+    case Event(nodes: List[A] @unchecked, data) =>
+      log.debug(s"Received nodes $nodes, going to Joining")
+      goto(State.Joining).using(data.copy(nodes, coordinationRetries))
   }
 
   // Locking
 
   onTransition {
     case _ -> State.Locking =>
-      val ttl = (2 * coordinationTimeout + joinTimeout.getOrElse(Duration.Zero)) * ttlFactor // Keep lock until self added
+      log.debug("Transitioning to Locking")
+      val ttl = (2 * overallCoordinationTimeout + joinTimeout.getOrElse(Duration.Zero)) * ttlFactor // Keep lock until self added
       coordination.lock(ttl).pipeTo(self)
   }
 
   when(State.Locking, coordinationTimeout) {
-    case Event(Coordination.LockResult.Success, data) => goto(State.Joining).using(data.copy(List(selfAddress), coordinationRetries))
-    case Event(Coordination.LockResult.Failure, data) => goto(State.BeforeGettingNodes).using(data.copy(Nil, coordinationRetries))
+    case Event(Coordination.LockResult.Success, data) =>
+      log.debug("Successfully locked, going to Joining")
+      goto(State.Joining).using(data.copy(List(selfAddress), coordinationRetries))
+
+    case Event(Coordination.LockResult.Failure, data) =>
+      log.debug("Couldn't lock, going to BeforeGettingNodes")
+      goto(State.BeforeGettingNodes).using(data.copy(Nil, coordinationRetries))
   }
 
   // BeforeGettingNodes
 
+  onTransition {
+    case _ -> State.BeforeGettingNodes => log.debug("Transitioning to BeforeGettingNodes")
+  }
+
   when(State.BeforeGettingNodes, retryGetNodesDelay) {
-    case Event(StateTimeout, _) => goto(State.GettingNodes)
+    case Event(StateTimeout, _) =>
+      log.debug(s"Waited for $retryGetNodesDelay, going to GettingNodes")
+      goto(State.GettingNodes)
   }
 
   // Joining
 
-  onTransition(intoJoiningHandler(this))
+  onTransition {
+    case _ -> State.Joining =>
+      log.debug("Transitioning to Joining")
+      intoJoiningHandler(this)
+  }
 
   when(State.Joining, joinTimeout.getOrElse(Duration.Zero))(joiningFunction(this))
 
-  onTransition(outOfJoiningHandler(this))
+  onTransition {
+    case State.Joining -> _ =>
+      log.debug("Transitioning out of Joining")
+      outOfJoiningHandler(this)
+  }
 
   // AddingSelf
 
   onTransition {
-    case _ -> State.AddingSelf => coordination.addSelf(selfAddress, addOrRefreshTtl).pipeTo(self)
+    case _ -> State.AddingSelf =>
+      log.debug("Transitioning to AddingSelf")
+      coordination.addSelf(selfAddress, addOrRefreshTtl).pipeTo(self)
   }
 
   when(State.AddingSelf, coordinationTimeout) {
     case Event(Coordination.SelfAdded(context: B#Context @unchecked), data) =>
+      log.debug("Successfully added self, going to RefreshScheduled")
       goto(State.RefreshScheduled).using(data.copy(coordinationRetriesLeft = coordinationRetries, context = context))
   }
 
   // RefreshScheduled
 
+  onTransition {
+    case _ -> State.RefreshScheduled => log.debug("Transitioning to RefreshScheduled")
+  }
+
   when(State.RefreshScheduled, refreshInterval) {
-    case Event(StateTimeout, _) => goto(State.Refreshing)
+    case Event(StateTimeout, _) =>
+      log.debug(s"Waited for $refreshInterval, going to Refreshing")
+      goto(State.Refreshing)
   }
 
   // Refreshing
 
   onTransition {
-    case _ -> State.Refreshing => coordination.refresh(selfAddress, addOrRefreshTtl, stateData.context).pipeTo(self)
+    case _ -> State.Refreshing =>
+      log.debug(s"Transitioning to Refreshing")
+      coordination.refresh(selfAddress, addOrRefreshTtl, stateData.context).pipeTo(self)
   }
 
   when(State.Refreshing, coordinationTimeout) {
-    case Event(Coordination.Refreshed(_), _) => goto(State.RefreshScheduled).using(stateData.copy(coordinationRetriesLeft = coordinationRetries))
+    case Event(Coordination.Refreshed(_), _) =>
+      log.debug("Successfully refreshed, going to RefreshScheduled")
+      goto(State.RefreshScheduled).using(stateData.copy(coordinationRetriesLeft = coordinationRetries))
   }
 
   // Retrying
 
   onTransition {
-    case state -> State.Retrying => self ! Retry(state)
+    case state -> State.Retrying =>
+      log.debug(s"Transitioning from $state to Retrying")
+      self ! Retry(state)
   }
 
   when(State.Retrying) {
-    case Event(Retry(state), _) => goto(state)
+    case Event(Retry(state), _) =>
+      log.warning(s"Communication with coordination didn't work, going to $state again!")
+      goto(state)
   }
 
   // Handle failure
@@ -183,10 +229,13 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
     case Event(Status.Failure(cause), _) =>
       log.error(cause, "Unexpected failure!")
       throw cause
+
     case Event(StateTimeout, data @ Data(_, n, _)) if n > 0 =>
+      log.warning(s"Coordination timout in state $stateName, $n retries left!")
       goto(State.Retrying).using(data.copy(coordinationRetriesLeft = n - 1))
+
     case Event(StateTimeout, _) =>
-      log.error(s"Timeout in state $stateName!")
+      log.error(s"Coordination timeout in state $stateName, no retries left!")
       throw ConstructrMachine.StateTimeoutException(stateName)
   }
 
