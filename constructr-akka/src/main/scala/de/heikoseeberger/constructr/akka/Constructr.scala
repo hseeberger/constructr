@@ -31,20 +31,20 @@ object Constructr {
 
   def props(strategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy): Props = Props(new Constructr(strategy))
 
-  private def intoJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]): ConstructrMachine.TransitionHandler[Address] = {
-    case (_, ConstructrMachine.State.Joining) =>
-      Cluster(machine.context.system).joinSeedNodes(machine.nextStateData.nodes) // An existing seed node process would be stopped
-      Cluster(machine.context.system).subscribe(machine.self, InitialStateAsEvents, classOf[MemberJoined], classOf[MemberUp])
+  private def intoJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]) = {
+    Cluster(machine.context.system).joinSeedNodes(machine.nextStateData.nodes) // An existing seed node process would be stopped
+    Cluster(machine.context.system).subscribe(machine.self, InitialStateAsEvents, classOf[MemberJoined], classOf[MemberUp])
   }
 
   private def joiningFunction[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]): ConstructrMachine.StateFunction[Address, B] = {
     case machine.Event(MemberJoined(member), _) if member.address == machine.selfAddress => machine.goto(ConstructrMachine.State.AddingSelf)
+    case machine.Event(MemberJoined(member), _)                                          => machine.stay()
     case machine.Event(MemberUp(member), _) if member.address == machine.selfAddress     => machine.goto(ConstructrMachine.State.AddingSelf)
+    case machine.Event(MemberUp(member), _)                                              => machine.stay()
   }
 
-  private def outOfJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]): ConstructrMachine.TransitionHandler[Address] = {
-    case (ConstructrMachine.State.Joining, _) => Cluster(machine.context.system).unsubscribe(machine.self)
-  }
+  private def outOfJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]) =
+    Cluster(machine.context.system).unsubscribe(machine.self)
 }
 
 final class Constructr private (override val supervisorStrategy: SupervisorStrategy)
