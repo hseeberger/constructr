@@ -18,7 +18,8 @@ package de.heikoseeberger.constructr.coordination
 
 import akka.http.scaladsl.client.RequestBuilding.{ Get, Put }
 import akka.http.scaladsl.model.StatusCodes.{ NotFound, OK }
-import akka.http.scaladsl.model.{ HttpResponse, ResponseEntity, Uri }
+import akka.http.scaladsl.model.{ HttpEntity, HttpResponse, ResponseEntity, Uri }
+import akka.http.scaladsl.model.MediaTypes.`application/json`
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
 import scala.concurrent.duration.Duration
@@ -113,8 +114,8 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
     val createSessionUri = sessionUri
       .withPath(sessionUri.path / "create")
-      .withQuery(Uri.Query("Behaviour" -> "delete", "ttl" -> toSeconds(ttl)))
-    send(Put(createSessionUri)).flatMap {
+    val body = HttpEntity(`application/json`, s"""{"behavior": "delete", "ttl": "${toSeconds(ttl)}s"}""")
+    send(Put(createSessionUri, body)).flatMap {
       case HttpResponse(OK, _, entity, _)    => unmarshalSession(entity)
       case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
     }
