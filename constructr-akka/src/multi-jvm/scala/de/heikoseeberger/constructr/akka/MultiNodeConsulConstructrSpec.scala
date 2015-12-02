@@ -35,7 +35,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 import scala.sys.process.{ ProcessLogger, stringToProcess }
 
-object ConstructrMultiNodeConfigConsul extends MultiNodeConfig {
+object ConsulConstructrMultiNodeConfig extends MultiNodeConfig {
 
   val host = "docker-machine ip default".!!.trim
 
@@ -45,14 +45,14 @@ object ConstructrMultiNodeConfigConsul extends MultiNodeConfig {
     commonConfig(ConfigFactory.load())
     val node = role(port.toString)
     nodeConfig(node)(ConfigFactory.parseString(
-      s"""|akka.actor.provider               = akka.cluster.ClusterActorRefProvider
-          |akka.loggers                      = ["de.heikoseeberger.akkalog4j.Log4jLogger"]
-          |akka.loglevel                     = "DEBUG"
-          |akka.remote.netty.tcp.hostname    = "127.0.0.1"
-          |akka.remote.netty.tcp.port        = $port
+      s"""|akka.actor.provider                  = akka.cluster.ClusterActorRefProvider
+          |akka.loggers                         = ["de.heikoseeberger.akkalog4j.Log4jLogger"]
+          |akka.loglevel                        = "DEBUG"
+          |akka.remote.netty.tcp.hostname       = "127.0.0.1"
+          |akka.remote.netty.tcp.port           = $port
           |constructr.akka.coordination.backend = "consul"
-          |constructr.akka.coordination.port = 8500
-          |constructr.akka.coordination.host = $host""".stripMargin
+          |constructr.akka.coordination.host    = $host
+          |constructr.akka.coordination.port    = 8501""".stripMargin
     ))
     node
   }
@@ -64,7 +64,7 @@ class MultiNodeConsulConstructrSpecMultiJvmNode3 extends MultiNodeConsulConstruc
 class MultiNodeConsulConstructrSpecMultiJvmNode4 extends MultiNodeConsulConstructrSpec
 class MultiNodeConsulConstructrSpecMultiJvmNode5 extends MultiNodeConsulConstructrSpec
 
-abstract class MultiNodeConsulConstructrSpec[A: AddressSerialization] extends MultiNodeSpec(ConstructrMultiNodeConfigConsul)
+abstract class MultiNodeConsulConstructrSpec[A: AddressSerialization] extends MultiNodeSpec(ConsulConstructrMultiNodeConfig)
     with FreeSpecLike with Matchers with BeforeAndAfterAll {
   import EtcdConstructrMultiNodeConfig._
   import RequestBuilding._
@@ -75,12 +75,12 @@ abstract class MultiNodeConsulConstructrSpec[A: AddressSerialization] extends Mu
   "Constructr should manage an Akka cluster" in {
     runOn(nodes.head) {
       "docker rm -f constructr-consul".!(ProcessLogger(_ => ()))
-      s"""docker run -d -p 8400:8400 -p 8500:8500 -p 8600:53/udp --name constructr-consul progrium/consul -server -bootstrap""".!
+      s"""docker run -d -p 8501:8500 --name constructr-consul progrium/consul -server -bootstrap""".!
 
       within(20.seconds.dilated) {
         awaitAssert {
           val consulStatus = Await.result(
-            Http().singleRequest(Delete(s"http://$host:8500/v1/kv/constructr/akka?recurse")).map(_.status),
+            Http().singleRequest(Delete(s"http://$host:8501/v1/kv/constructr/akka?recurse")).map(_.status),
             5.seconds.dilated
           )
           consulStatus should (be(OK) or be(NotFound))
@@ -113,7 +113,7 @@ abstract class MultiNodeConsulConstructrSpec[A: AddressSerialization] extends Mu
       awaitAssert {
         val constructrNodes = Await.result(
           Http()
-            .singleRequest(Get(s"http://$host:8500/v1/kv/constructr/akka/MultiNodeConsulConstructrSpec/nodes/?recurse"))
+            .singleRequest(Get(s"http://$host:8501/v1/kv/constructr/akka/MultiNodeConsulConstructrSpec/nodes/?recurse"))
             .flatMap(resp => Unmarshal(resp).to[String].map(toNodes)),
           1.second.dilated
         )

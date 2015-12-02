@@ -18,17 +18,17 @@ package de.heikoseeberger.constructr.coordination
 
 import akka.http.scaladsl.client.RequestBuilding.{ Get, Put }
 import akka.http.scaladsl.model.StatusCodes.{ NotFound, OK }
-import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, ResponseEntity, Uri }
+import akka.http.scaladsl.model.{ HttpResponse, ResponseEntity, Uri }
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 
-final class ConsulCoordination(prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse])
-    extends Coordination[Coordination.Backend.Consul.type](prefix, clusterName, host, port, send) {
+final class ConsulCoordination(prefix: String, clusterName: String, host: String, port: Int)(implicit sendFlow: Coordination.SendFlow)
+    extends Coordination[Coordination.Backend.Consul.type] {
   import Coordination._
 
-  private val v1Uri = Uri(s"http://$host:$port/v1")
+  private val v1Uri = Uri("/v1")
 
   private val kvUri = v1Uri.withPath(v1Uri.path / "kv")
 
@@ -103,7 +103,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
   override def initialBackendContext = ""
 
   private def createSession(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) = {
-    def unmarshalSession(entity: ResponseEntity)(implicit ec: ExecutionContext, mat: Materializer) = {
+    def unmarshalSession(entity: ResponseEntity) = {
       def toSession(s: String) = {
         import rapture.json._
         import rapture.json.jsonBackends.spray._

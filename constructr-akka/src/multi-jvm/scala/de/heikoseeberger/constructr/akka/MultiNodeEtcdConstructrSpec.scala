@@ -48,7 +48,8 @@ object EtcdConstructrMultiNodeConfig extends MultiNodeConfig {
           |akka.loglevel                     = "DEBUG"
           |akka.remote.netty.tcp.hostname    = "127.0.0.1"
           |akka.remote.netty.tcp.port        = $port
-          |constructr.akka.coordination.host = $host""".stripMargin
+          |constructr.akka.coordination.host = $host
+          |constructr.akka.coordination.port = 3379""".stripMargin
     ))
     node
   }
@@ -71,12 +72,12 @@ abstract class MultiNodeEtcdConstructrSpec extends MultiNodeSpec(EtcdConstructrM
   "Constructr should manage an Akka cluster" in {
     runOn(nodes.head) {
       "docker rm -f constructr-etcd".!(ProcessLogger(_ => ()))
-      s"""docker run --name constructr-etcd -d -p 2379:2379 quay.io/coreos/etcd:v2.2.1 -advertise-client-urls http://$host:2379 -listen-client-urls http://0.0.0.0:2379""".!
+      s"""docker run --name constructr-etcd -d -p 3379:3379 quay.io/coreos/etcd:v2.2.2 -advertise-client-urls http://$host:3379 -listen-client-urls http://0.0.0.0:3379""".!
 
       within(20.seconds.dilated) {
         awaitAssert {
           val etcdStatus = Await.result(
-            Http().singleRequest(Delete(s"http://$host:2379/v2/keys/constructr/akka?recursive=true")).map(_.status),
+            Http().singleRequest(Delete(s"http://$host:3379/v2/keys/constructr/akka?recursive=true")).map(_.status),
             5.seconds.dilated // As this is the first request fired via `singleRequest`, creating the pool takes some time (probably)
           )
           etcdStatus should (be(OK) or be(NotFound))
@@ -111,7 +112,7 @@ abstract class MultiNodeEtcdConstructrSpec extends MultiNodeSpec(EtcdConstructrM
       awaitAssert {
         val constructrNodes = Await.result(
           Http()
-            .singleRequest(Get(s"http://$host:2379/v2/keys/constructr/akka/MultiNodeEtcdConstructrSpec/nodes"))
+            .singleRequest(Get(s"http://$host:3379/v2/keys/constructr/akka/MultiNodeEtcdConstructrSpec/nodes"))
             .flatMap(resp => Unmarshal(resp.entity).to[String]),
           1.second.dilated
         )
