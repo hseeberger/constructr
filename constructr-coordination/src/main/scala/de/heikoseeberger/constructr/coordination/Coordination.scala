@@ -16,12 +16,16 @@
 
 package de.heikoseeberger.constructr.coordination
 
+import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, StatusCode }
 import akka.stream.Materializer
+import akka.stream.scaladsl.{ Sink, Source, Flow }
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 
 object Coordination {
+
+  type SendFlow = Flow[HttpRequest, HttpResponse, Future[Http.OutgoingConnection]]
 
   sealed trait Backend {
     type Context
@@ -54,14 +58,17 @@ object Coordination {
 
   case class UnexpectedStatusCode(statusCode: StatusCode) extends RuntimeException(s"Unexpected status code $statusCode!")
 
-  def apply[B <: Coordination.Backend](backend: Backend)(prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse]): Coordination[B] =
+  def apply[B <: Coordination.Backend](backend: Backend)(prefix: String, clusterName: String, host: String, port: Int, sendFlow: SendFlow): Coordination[B] =
     backend match {
-      case Backend.Etcd   => new EtcdCoordination(prefix, clusterName, host, port, send).asInstanceOf[Coordination[B]]
-      case Backend.Consul => new ConsulCoordination(prefix, clusterName, host, port, send).asInstanceOf[Coordination[B]]
+      case Backend.Etcd   => new EtcdCoordination(prefix, clusterName, host, port)(sendFlow).asInstanceOf[Coordination[B]]
+      case Backend.Consul => new ConsulCoordination(prefix, clusterName, host, port)(sendFlow).asInstanceOf[Coordination[B]]
     }
+
+  def send(request: HttpRequest)(implicit sendFlow: SendFlow, mat: Materializer): Future[HttpResponse] =
+    Source.single(request).via(sendFlow).runWith(Sink.head)
 }
 
-abstract class Coordination[B <: Coordination.Backend](prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse]) {
+abstract class Coordination[B <: Coordination.Backend] {
   import Coordination._
 
   def getNodes[A: AddressSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[A]]

@@ -18,17 +18,17 @@ package de.heikoseeberger.constructr.coordination
 
 import akka.http.scaladsl.client.RequestBuilding.{ Get, Put }
 import akka.http.scaladsl.model.StatusCodes.{ Created, NotFound, OK, PreconditionFailed }
-import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, ResponseEntity, Uri }
+import akka.http.scaladsl.model.{ HttpResponse, ResponseEntity, Uri }
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 
-final class EtcdCoordination(prefix: String, clusterName: String, host: String, port: Int, send: HttpRequest => Future[HttpResponse])
-    extends Coordination[Coordination.Backend.Etcd.type](prefix, clusterName, host, port, send) {
+final class EtcdCoordination(prefix: String, clusterName: String, host: String, port: Int)(implicit sendFlow: Coordination.SendFlow)
+    extends Coordination[Coordination.Backend.Etcd.type] {
   import Coordination._
 
-  private val kvUri = Uri(s"http://$host:$port/v2/keys")
+  private val kvUri = Uri(s"/v2/keys")
 
   private val baseUri = kvUri.withPath(kvUri.path / "constructr" / prefix / clusterName)
 

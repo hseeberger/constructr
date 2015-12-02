@@ -18,7 +18,7 @@ package de.heikoseeberger.constructr.machine
 
 import akka.actor.{ FSM, Props, Status }
 import akka.pattern.pipe
-import akka.stream.Materializer
+import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
 import scala.concurrent.duration.{ Duration, FiniteDuration }
 
@@ -37,7 +37,6 @@ object ConstructrMachine {
     case object AddingSelf extends State
     case object RefreshScheduled extends State
     case object Refreshing extends State
-    case object Retrying extends State
   }
 
   case class Data[A, B <: Coordination.Backend](nodes: List[A], coordinationRetriesLeft: Int, context: B#Context)
@@ -60,7 +59,7 @@ object ConstructrMachine {
     intoJoiningHandler: ConstructrMachine[A, B] => Unit = (machine: ConstructrMachine[A, B]) => (),
     joiningFunction: ConstructrMachine[A, B] => StateFunction[A, B] = (machine: ConstructrMachine[A, B]) => { case machine.Event(machine.StateTimeout, _) => machine.goto(State.AddingSelf) }: StateFunction[A, B],
     outOfJoiningHandler: ConstructrMachine[A, B] => Unit = (machine: ConstructrMachine[A, B]) => ()
-  )(implicit mat: Materializer): Props =
+  ): Props =
     Props(new ConstructrMachine[A, B](
       selfAddress,
       coordination,
@@ -88,10 +87,12 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
   intoJoiningHandler: ConstructrMachine[A, B] => Unit,
   joiningFunction: ConstructrMachine[A, B] => ConstructrMachine.StateFunction[A, B],
   outOfJoiningHandler: ConstructrMachine[A, B] => Unit
-)(implicit mat: Materializer)
+)
     extends FSM[ConstructrMachine.State, ConstructrMachine.Data[A, B]] {
   import ConstructrMachine._
   import context.dispatcher
+
+  private implicit val mat = ActorMaterializer()
 
   private val overallCoordinationTimeout = coordinationTimeout * (1 + coordinationRetries)
 
@@ -209,20 +210,6 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
       goto(State.RefreshScheduled).using(stateData.copy(coordinationRetriesLeft = coordinationRetries))
   }
 
-  // Retrying
-
-  onTransition {
-    case state -> State.Retrying =>
-      log.debug(s"Transitioning from $state to Retrying")
-      self ! Retry(state)
-  }
-
-  when(State.Retrying) {
-    case Event(Retry(state), _) =>
-      log.warning(s"Communication with coordination didn't work, going to $state again!")
-      goto(state)
-  }
-
   // Handle failure
 
   whenUnhandled {
@@ -232,7 +219,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
 
     case Event(StateTimeout, data @ Data(_, n, _)) if n > 0 =>
       log.warning(s"Coordination timout in state $stateName, $n retries left!")
-      goto(State.Retrying).using(data.copy(coordinationRetriesLeft = n - 1))
+      goto(stateName).using(data.copy(coordinationRetriesLeft = n - 1))
 
     case Event(StateTimeout, _) =>
       log.error(s"Coordination timeout in state $stateName, no retries left!")
