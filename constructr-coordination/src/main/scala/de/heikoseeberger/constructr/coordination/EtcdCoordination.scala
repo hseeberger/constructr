@@ -34,7 +34,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
 
   private val nodesUri = baseUri.withPath(baseUri.path / "nodes")
 
-  override def getNodes[A: AddressSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[A]] = {
+  override def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[N]] = {
     def unmarshalNodes(entity: ResponseEntity) = {
       def toNodes(s: String) = {
         import rapture.json._
@@ -42,7 +42,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
         def jsonToNode(json: Json) = {
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
           val key = json.key.as[String].stripPrefix(s"$init/")
-          implicitly[AddressSerialization[A]].fromBytes(decode(key))
+          implicitly[NodeSerialization[N]].fromBytes(decode(key))
         }
         Json.parse(s).node match {
           case json"""{ "nodes": $nodes }""" => nodes.as[List[Json]].map(jsonToNode)
@@ -70,13 +70,13 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
     }
   }
 
-  override def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) =
+  override def addSelf[N: NodeSerialization](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) =
     send(Put(addOrRefreshUri(self, ttl))).flatMap {
       case HttpResponse(Created, _, entity, _) => ignore(entity).map(_ => SelfAdded[Coordination.Backend.Etcd.type](None))
       case HttpResponse(other, _, entity, _)   => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
     }
 
-  override def refresh[A: AddressSerialization](self: A, ttl: Duration, context: None.type)(implicit ec: ExecutionContext, mat: Materializer) =
+  override def refresh[N: NodeSerialization](self: N, ttl: Duration, context: None.type)(implicit ec: ExecutionContext, mat: Materializer) =
     send(Put(addOrRefreshUri(self, ttl))).flatMap {
       case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => Refreshed[Coordination.Backend.Etcd.type](None))
       case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
@@ -84,7 +84,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
 
   override def initialBackendContext = None
 
-  private def addOrRefreshUri[A: AddressSerialization](self: A, ttl: Duration) = nodesUri
-    .withPath(nodesUri.path / encode(implicitly[AddressSerialization[A]].toBytes(self)))
+  private def addOrRefreshUri[N: NodeSerialization](self: N, ttl: Duration) = nodesUri
+    .withPath(nodesUri.path / encode(implicitly[NodeSerialization[N]].toBytes(self)))
     .withQuery(Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString))
 }

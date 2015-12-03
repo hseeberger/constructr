@@ -41,9 +41,9 @@ object Coordination {
     }
   }
 
-  trait AddressSerialization[A] {
-    def fromBytes(bytes: Array[Byte]): A
-    def toBytes(a: A): Array[Byte]
+  trait NodeSerialization[N] {
+    def fromBytes(bytes: Array[Byte]): N
+    def toBytes(a: N): Array[Byte]
   }
 
   sealed trait LockResult
@@ -71,13 +71,13 @@ object Coordination {
 abstract class Coordination[B <: Coordination.Backend] {
   import Coordination._
 
-  def getNodes[A: AddressSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[A]]
+  def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[N]]
 
   def lock(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult]
 
-  def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded[B]]
+  def addSelf[N: NodeSerialization](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded[B]]
 
-  def refresh[A: AddressSerialization](self: A, ttl: Duration, context: B#Context)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed[B]]
+  def refresh[N: NodeSerialization](self: N, ttl: Duration, context: B#Context)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed[B]]
 
   def initialBackendContext: B#Context
 }

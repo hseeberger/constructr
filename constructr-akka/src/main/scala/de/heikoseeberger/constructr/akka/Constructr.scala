@@ -35,10 +35,10 @@ object Constructr {
   }
 
   private def joiningFunction[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]): ConstructrMachine.StateFunction[Address, B] = {
-    case machine.Event(MemberJoined(member), _) if member.address == machine.selfAddress => machine.goto(ConstructrMachine.State.AddingSelf)
-    case machine.Event(MemberJoined(member), _)                                          => machine.stay()
-    case machine.Event(MemberUp(member), _) if member.address == machine.selfAddress     => machine.goto(ConstructrMachine.State.AddingSelf)
-    case machine.Event(MemberUp(member), _)                                              => machine.stay()
+    case machine.Event(MemberJoined(member), _) if member.address == machine.selfNode => machine.goto(ConstructrMachine.State.AddingSelf)
+    case machine.Event(MemberJoined(member), _)                                       => machine.stay()
+    case machine.Event(MemberUp(member), _) if member.address == machine.selfNode     => machine.goto(ConstructrMachine.State.AddingSelf)
+    case machine.Event(MemberUp(member), _)                                           => machine.stay()
   }
 
   private def outOfJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]) =

@@ -60,9 +60,9 @@ final class Settings private (system: ExtendedActorSystem) extends Extension {
 
   val seedProviderTimeout: FiniteDuration = getDuration("seed-provider-timeout")
 
-  val selfAddress: InetAddress = {
-    val selfAddress = config.getString("self-address")
-    if (selfAddress.toLowerCase == "auto") InetAddress.getLocalHost else InetAddress.getByName(selfAddress)
+  val selfNode: InetAddress = {
+    val selfNode = config.getString("self-address")
+    if (selfNode.toLowerCase == "auto") InetAddress.getLocalHost else InetAddress.getByName(selfNode)
   }
 
   private def config = system.settings.config.getConfig("constructr.cassandra")

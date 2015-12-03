@@ -39,7 +39,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
 
   private val nodesUri = baseUri.withPath(baseUri.path / "nodes")
 
-  override def getNodes[A: AddressSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[A]] = {
+  override def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[N]] = {
     def unmarshalNodes(entity: ResponseEntity) = {
       def toNodes(s: String) = {
         import rapture.json._
@@ -47,7 +47,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
         def jsonToNode(json: Json) = {
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
           val key = json.Key.as[String].substring(init.length)
-          implicitly[AddressSerialization[A]].fromBytes(decode(key))
+          implicitly[NodeSerialization[N]].fromBytes(decode(key))
         }
         Json.parse(s).as[List[Json]].map(jsonToNode)
       }
@@ -79,9 +79,9 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  override def addSelf[A: AddressSerialization](self: A, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) = {
+  override def addSelf[N: NodeSerialization](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) = {
     def uri(sessionId: String) = nodesUri
-      .withPath(nodesUri.path / encode(implicitly[AddressSerialization[A]].toBytes(self)))
+      .withPath(nodesUri.path / encode(implicitly[NodeSerialization[N]].toBytes(self)))
       .withQuery(Uri.Query("acquire" -> sessionId))
     val responseAndSession = for {
       sessionId <- createSession(ttl)
@@ -93,7 +93,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  override def refresh[A: AddressSerialization](self: A, ttl: Duration, sessionId: String)(implicit ec: ExecutionContext, mat: Materializer) = {
+  override def refresh[N: NodeSerialization](self: N, ttl: Duration, sessionId: String)(implicit ec: ExecutionContext, mat: Materializer) = {
     val uri = sessionUri.withPath(sessionUri.path / "renew" / sessionId)
     send(Put(uri)).flatMap {
       case HttpResponse(OK, _, entity, _)    => ignore(entity).map(_ => Refreshed[Coordination.Backend.Consul.type](sessionId))
