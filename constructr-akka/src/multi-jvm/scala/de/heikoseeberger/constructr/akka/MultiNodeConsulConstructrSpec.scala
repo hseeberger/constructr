@@ -28,7 +28,7 @@ import akka.stream.ActorMaterializer
 import akka.testkit.TestDuration
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import de.heikoseeberger.constructr.coordination.Coordination.AddressSerialization
+import de.heikoseeberger.constructr.coordination.Coordination.NodeSerialization
 import de.heikoseeberger.constructr.coordination._
 import org.scalatest.{ BeforeAndAfterAll, FreeSpecLike, Matchers }
 import scala.concurrent.Await
@@ -64,7 +64,7 @@ class MultiNodeConsulConstructrSpecMultiJvmNode3 extends MultiNodeConsulConstruc
 class MultiNodeConsulConstructrSpecMultiJvmNode4 extends MultiNodeConsulConstructrSpec
 class MultiNodeConsulConstructrSpecMultiJvmNode5 extends MultiNodeConsulConstructrSpec
 
-abstract class MultiNodeConsulConstructrSpec[A: AddressSerialization] extends MultiNodeSpec(ConsulConstructrMultiNodeConfig)
+abstract class MultiNodeConsulConstructrSpec[N: NodeSerialization] extends MultiNodeSpec(ConsulConstructrMultiNodeConfig)
     with FreeSpecLike with Matchers with BeforeAndAfterAll {
   import EtcdConstructrMultiNodeConfig._
   import RequestBuilding._
@@ -132,7 +132,7 @@ abstract class MultiNodeConsulConstructrSpec[A: AddressSerialization] extends Mu
     import rapture.json._
     import rapture.json.jsonBackends.spray._
     def jsonToNode(json: Json) = {
-      implicitly[AddressSerialization[A]].fromBytes(decode(json.Key.as[String].substring("constructr/akka/MultiNodeConsulConstructrSpec/nodes/".length)))
+      implicitly[NodeSerialization[N]].fromBytes(decode(json.Key.as[String].substring("constructr/akka/MultiNodeConsulConstructrSpec/nodes/".length)))
     }
     Json.parse(s).as[List[Json]].map(jsonToNode)
   }

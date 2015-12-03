@@ -70,7 +70,7 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
     }
     context.actorOf(
       ConstructrMachine.props(
-        settings.selfAddress,
+        settings.selfNode,
         coordination,
         settings.coordinationTimeout,
         settings.coordinationRetries,

@@ -39,7 +39,7 @@ object ConstructrMachine {
     case object Refreshing extends State
   }
 
-  case class Data[A, B <: Coordination.Backend](nodes: List[A], coordinationRetriesLeft: Int, context: B#Context)
+  case class Data[N, B <: Coordination.Backend](nodes: List[N], coordinationRetriesLeft: Int, context: B#Context)
 
   private final case class Retry(state: State)
 
@@ -47,8 +47,8 @@ object ConstructrMachine {
 
   final val Name = "constructr-machine"
 
-  def props[A: Coordination.AddressSerialization, B <: Coordination.Backend](
-    selfAddress: A,
+  def props[N: Coordination.NodeSerialization, B <: Coordination.Backend](
+    selfNode: N,
     coordination: Coordination[B],
     coordinationTimeout: FiniteDuration,
     coordinationRetries: Int,
@@ -56,12 +56,12 @@ object ConstructrMachine {
     refreshInterval: FiniteDuration,
     ttlFactor: Double,
     joinTimeout: Option[FiniteDuration] = None,
-    intoJoiningHandler: ConstructrMachine[A, B] => Unit = (machine: ConstructrMachine[A, B]) => (),
-    joiningFunction: ConstructrMachine[A, B] => StateFunction[A, B] = (machine: ConstructrMachine[A, B]) => { case machine.Event(machine.StateTimeout, _) => machine.goto(State.AddingSelf) }: StateFunction[A, B],
-    outOfJoiningHandler: ConstructrMachine[A, B] => Unit = (machine: ConstructrMachine[A, B]) => ()
+    intoJoiningHandler: ConstructrMachine[N, B] => Unit = (machine: ConstructrMachine[N, B]) => (),
+    joiningFunction: ConstructrMachine[N, B] => StateFunction[N, B] = (machine: ConstructrMachine[N, B]) => { case machine.Event(machine.StateTimeout, _) => machine.goto(State.AddingSelf) }: StateFunction[N, B],
+    outOfJoiningHandler: ConstructrMachine[N, B] => Unit = (machine: ConstructrMachine[N, B]) => ()
   ): Props =
-    Props(new ConstructrMachine[A, B](
-      selfAddress,
+    Props(new ConstructrMachine[N, B](
+      selfNode,
       coordination,
       coordinationTimeout,
       coordinationRetries,
@@ -75,8 +75,8 @@ object ConstructrMachine {
     ))
 }
 
-final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordination.Backend] private (
-  val selfAddress: A,
+final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordination.Backend] private (
+  val selfNode: N,
   coordination: Coordination[B],
   coordinationTimeout: FiniteDuration,
   coordinationRetries: Int,
@@ -84,11 +84,11 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
   refreshInterval: FiniteDuration,
   ttlFactor: Double,
   joinTimeout: Option[FiniteDuration],
-  intoJoiningHandler: ConstructrMachine[A, B] => Unit,
-  joiningFunction: ConstructrMachine[A, B] => ConstructrMachine.StateFunction[A, B],
-  outOfJoiningHandler: ConstructrMachine[A, B] => Unit
+  intoJoiningHandler: ConstructrMachine[N, B] => Unit,
+  joiningFunction: ConstructrMachine[N, B] => ConstructrMachine.StateFunction[N, B],
+  outOfJoiningHandler: ConstructrMachine[N, B] => Unit
 )
-    extends FSM[ConstructrMachine.State, ConstructrMachine.Data[A, B]] {
+    extends FSM[ConstructrMachine.State, ConstructrMachine.Data[N, B]] {
   import ConstructrMachine._
   import context.dispatcher
 
@@ -118,7 +118,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
       log.debug("Received empty nodes, going to Locking")
       goto(State.Locking).using(data.copy(Nil, coordinationRetries))
 
-    case Event(nodes: List[A] @unchecked, data) =>
+    case Event(nodes: List[N] @unchecked, data) =>
       log.debug(s"Received nodes $nodes, going to Joining")
       goto(State.Joining).using(data.copy(nodes, coordinationRetries))
   }
@@ -135,7 +135,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
   when(State.Locking, coordinationTimeout) {
     case Event(Coordination.LockResult.Success, data) =>
       log.debug("Successfully locked, going to Joining")
-      goto(State.Joining).using(data.copy(List(selfAddress), coordinationRetries))
+      goto(State.Joining).using(data.copy(List(selfNode), coordinationRetries))
 
     case Event(Coordination.LockResult.Failure, data) =>
       log.debug("Couldn't lock, going to BeforeGettingNodes")
@@ -175,7 +175,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
   onTransition {
     case _ -> State.AddingSelf =>
       log.debug("Transitioning to AddingSelf")
-      coordination.addSelf(selfAddress, addOrRefreshTtl).pipeTo(self)
+      coordination.addSelf(selfNode, addOrRefreshTtl).pipeTo(self)
   }
 
   when(State.AddingSelf, coordinationTimeout) {
@@ -201,7 +201,7 @@ final class ConstructrMachine[A: Coordination.AddressSerialization, B <: Coordin
   onTransition {
     case _ -> State.Refreshing =>
       log.debug(s"Transitioning to Refreshing")
-      coordination.refresh(selfAddress, addOrRefreshTtl, stateData.context).pipeTo(self)
+      coordination.refresh(selfNode, addOrRefreshTtl, stateData.context).pipeTo(self)
   }
 
   when(State.Refreshing, coordinationTimeout) {
