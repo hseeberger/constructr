@@ -64,13 +64,14 @@ The following listing shows the available configuration settings with their defa
 ```
 constructr.akka {
   coordination {
-    backend = "etcd" // or "consul"
+    backend = "etcd"      // Or "consul"
     host    = "localhost"
     port    = 2379
   }
 
   coordination-retries  = 2
   coordination-timeout  = 3 seconds
+  max-nr-of-seed-nodes  = 0          // Any non-positive value means Int.MaxValue
   refresh-interval      = 30 seconds // TTL is refresh-interval * ttl-factor
   retry-get-nodes-delay = 3 seconds
   ttl-factor            = 1.5        // Must be greater than 1 + (coordination-timeout * (1 + coordination-retries) / refresh-interval)!
@@ -108,7 +109,7 @@ The following listing shows the available configuration settings with their defa
 ```
 constructr.cassandra {
   coordination {
-    backend = "etcd" // or "consul"
+    backend = "etcd"                          // Or "consul"
     host    = "localhost"
     host    = ${?CASSANDRA_BROADCAST_ADDRESS} // Works for Docker image
     port    = 2379
@@ -116,6 +117,7 @@ constructr.cassandra {
 
   coordination-retries  = 2
   coordination-timeout  = 3 seconds
+  max-nr-of-seed-nodes  = 0          // Any non-positive value means Int.MaxValue
   refresh-interval      = 30 seconds // TTL is refresh-interval * ttl-factor
   retry-get-nodes-delay = 3 seconds
   ttl-factor            = 1.5        // Must be greater than 1 + (coordination-timeout * (1 + coordination-retries) / refresh-interval)!
