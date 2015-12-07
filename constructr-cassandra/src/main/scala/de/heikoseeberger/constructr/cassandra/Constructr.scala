@@ -77,6 +77,7 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
         settings.retryGetNodesDelay,
         settings.refreshInterval,
         settings.ttlFactor,
+        settings.maxNrOfSeedNodes,
         None,
         intoJoiningHandler(self)
       ),
