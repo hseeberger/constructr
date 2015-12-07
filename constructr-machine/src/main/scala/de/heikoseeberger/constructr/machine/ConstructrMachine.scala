@@ -55,6 +55,7 @@ object ConstructrMachine {
     retryGetNodesDelay: FiniteDuration,
     refreshInterval: FiniteDuration,
     ttlFactor: Double,
+    maxNrOfSeedNodes: Int,
     joinTimeout: Option[FiniteDuration] = None,
     intoJoiningHandler: ConstructrMachine[N, B] => Unit = (machine: ConstructrMachine[N, B]) => (),
     joiningFunction: ConstructrMachine[N, B] => StateFunction[N, B] = (machine: ConstructrMachine[N, B]) => { case machine.Event(machine.StateTimeout, _) => machine.goto(State.AddingSelf) }: StateFunction[N, B],
@@ -68,6 +69,7 @@ object ConstructrMachine {
       retryGetNodesDelay,
       refreshInterval,
       ttlFactor,
+      maxNrOfSeedNodes,
       joinTimeout,
       intoJoiningHandler,
       joiningFunction,
@@ -83,6 +85,7 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
   retryGetNodesDelay: FiniteDuration,
   refreshInterval: FiniteDuration,
   ttlFactor: Double,
+  maxNrOfSeedNodes: Int,
   joinTimeout: Option[FiniteDuration],
   intoJoiningHandler: ConstructrMachine[N, B] => Unit,
   joiningFunction: ConstructrMachine[N, B] => ConstructrMachine.StateFunction[N, B],
@@ -96,6 +99,7 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
 
   private val overallCoordinationTimeout = coordinationTimeout * (1 + coordinationRetries)
 
+  require(maxNrOfSeedNodes > 0, s"max-nr-of-seed-nodes must be positive, but was $maxNrOfSeedNodes!")
   require(
     ttlFactor > 1 + overallCoordinationTimeout / refreshInterval,
     s"ttl-factor must be greater than 1 + (coordination-timeout * (1 + coordination-retries) / refresh-interval), but was $ttlFactor!"
@@ -119,8 +123,9 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
       goto(State.Locking).using(data.copy(Nil, coordinationRetries))
 
     case Event(nodes: List[N] @unchecked, data) =>
-      log.debug(s"Received nodes $nodes, going to Joining")
-      goto(State.Joining).using(data.copy(nodes, coordinationRetries))
+      val seedNodes = nodes.take(maxNrOfSeedNodes)
+      log.debug(s"Received nodes $nodes, using seed nodes $seedNodes, going to Joining")
+      goto(State.Joining).using(data.copy(seedNodes, coordinationRetries))
   }
 
   // Locking

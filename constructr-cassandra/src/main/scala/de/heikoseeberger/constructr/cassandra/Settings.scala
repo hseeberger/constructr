@@ -43,6 +43,11 @@ final class Settings private (system: ExtendedActorSystem) extends Extension {
 
   val coordinationTimeout: FiniteDuration = getDuration("coordination-timeout")
 
+  val maxNrOfSeedNodes: Int = {
+    val maxNrOfSeedNodes = config.getInt("max-nr-of-seed-nodes")
+    if (maxNrOfSeedNodes <= 0) Int.MaxValue else maxNrOfSeedNodes
+  }
+
   val refreshInterval: FiniteDuration = getDuration("refresh-interval")
 
   val retryGetNodesDelay: FiniteDuration = getDuration("retry-get-nodes-delay")
