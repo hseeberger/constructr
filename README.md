@@ -9,29 +9,27 @@ ConstructR utilizes a key-value coordination service like etcd to automate boots
 In a nutshell, ConstructR is a state machine which first tries to get the nodes from the coordination service. If none are available it tries to acquire a lock, e.g. via a CAS write for etcd, and uses itself or retries getting the nodes. Then it joins using these nodes as seed nodes. After that it adds its address to the nodes and starts the refresh loop:
 
 ```
-     ┌───────────────────┐              ┌───────────────────┐
-     │   GettingNodes    │◀─────────────│BeforeGettingNodes │
-     └───────────────────┘    delayed   └───────────────────┘
-               │     │                            ▲
-     non-empty │     └──────────────────────┐     │
-               │               empty        │     │ failure
-               ▼                            ▼     │
-     ┌───────────────────┐              ┌───────────────────┐
-     │      Joining      │◀─────────────│      Locking      │
-     └───────────────────┘    success   └───────────────────┘
-               │
- member-joined │
-               │
-               ▼
-     ┌───────────────────┐
-     │    AddingSelf     │
-     └───────────────────┘
-               │
-               │
-               ▼
-     ┌───────────────────┐
-     │    Refreshing     │
-     └───────────────────┘
+    ┌───────────────────┐              ┌───────────────────┐
+    │   GettingNodes    │◀─────────────│BeforeGettingNodes │
+    └───────────────────┘    delayed   └───────────────────┘
+              │     │                            ▲
+    non-empty │     └──────────────────────┐     │ failure
+              ▼               empty        ▼     │
+    ┌───────────────────┐              ┌───────────────────┐
+    │      Joining      │◀─────────────│      Locking      │
+    └───────────────────┘              └───────────────────┘
+              │              success
+member-joined │
+              ▼
+    ┌───────────────────┐
+    │    AddingSelf     │
+    └───────────────────┘
+              │     ┌────────────────────────────┐
+              │     │                            │
+              ▼     ▼                            │
+    ┌───────────────────┐              ┌───────────────────┐
+    │ RefreshScheduled  │─────────────▶│    Refreshing     │
+    └───────────────────┘              └───────────────────┘
 ```
 
 If something goes wrong, e.g. a timeout (after configurable retries are exhausted) when interacting with the coordination service, ConstructR by default terminates its `ActorSystem`. At least for constructr-akka this can be changed by providing a custom `SupervisorStrategy` to the manually started `Constructr` actor, but be sure you know what you are doing.
@@ -46,7 +44,7 @@ constructr-akka depends on Akka 2.4.1 and is published to Bintray and Maven Cent
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= List(
-  "de.heikoseeberger" %% "constructr-akka" % "0.7.0",
+  "de.heikoseeberger" %% "constructr-akka" % "0.7.1",
   ...
 )
 ```
@@ -90,7 +88,7 @@ constructr-cassandra depends on Cassandra 3.0.0 and is published to Bintray and 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= List(
-  "de.heikoseeberger" %% "constructr-cassandra" % "0.7.0",
+  "de.heikoseeberger" %% "constructr-cassandra" % "0.7.1",
   ...
 )
 ```
@@ -142,7 +140,7 @@ Requirements:
 Contributions via GitHub pull requests are gladly accepted from their original author. Along with any pull requests, please state that the contribution is your original work and that you license the work to the project under the project's open source license. Whether or not you state this explicitly, by submitting any copyrighted material via pull request, email, or other means you agree to license the material under the project's open source license and warrant that you have the legal authority to do so.
 
 Please make sure to follow these conventions:
-- For each contribution there must be a ticket (GitHub issue) with a short descriptive name, e.g. "Respect seed-nodes configuration setting" 
+- For each contribution there must be a ticket (GitHub issue) with a short descriptive name, e.g. "Respect seed-nodes configuration setting"
 - Work should happen in a branch named "ISSUE-DESCRIPTION", e.g. "32-respect-seed-nodes"
 - Before a PR can be merged, all commits must be squashed into one with its message made up from the ticket name and the ticket id, e.g. "Respect seed-nodes configuration setting (closes #32)"
 
