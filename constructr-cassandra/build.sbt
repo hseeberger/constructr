@@ -18,7 +18,6 @@ assemblyMergeStrategy.in(assembly) := {
 }
 
 docker                := docker.dependsOn(assembly).value
-version.in(docker)    := "latest"
 imageNames.in(docker) := List(ImageName(s"constructr/cassandra-${Version.Cassandra}:${version.in(docker).value}"))
 dockerfile.in(docker) := {
   val fatJar = assemblyOutputPath.in(assembly).value
