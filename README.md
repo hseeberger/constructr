@@ -17,8 +17,8 @@ In a nutshell, ConstructR is a state machine which first tries to get the nodes 
               ▼               empty        ▼     │
     ┌───────────────────┐              ┌───────────────────┐
     │      Joining      │◀─────────────│      Locking      │
-    └───────────────────┘              └───────────────────┘
-              │              success
+    └───────────────────┘    success   └───────────────────┘
+              │
 member-joined │
               ▼
     ┌───────────────────┐
