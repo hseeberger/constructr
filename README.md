@@ -52,7 +52,7 @@ libraryDependencies ++= List(
 Simply add the `ConstructrExtension` to the `extensions` configuration setting:
 
 ```
-akka.extensions = ["de.heikoseeberger.constructr.ConstructrExtension"]
+akka.extensions = ["de.heikoseeberger.constructr.akka.ConstructrExtension"]
 ```
 
 This will start the `Constructr` actor as a system actor. Alternatively start it yourself as early as possible if you feel so inclined.
