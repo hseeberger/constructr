@@ -1,5 +1,7 @@
 # ConstructR #
 
+[![Join the chat at https://gitter.im/hseeberger/constructr](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/hseeberger/constructr?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 ConstructR aims at cluster bootstrapping (construction) by using a coordination service. Currently it provides libraries for bootstrapping [Akka](http://akka.io) and [Cassandra](https://cassandra.apache.org) clusters via [etcd](https://github.com/coreos/etcd) and [Consul](https://www.consul.io).
 
 Disambiguation: ConstructR is not related to [Typesafe ConductR](http://www.typesafe.com/products/conductr), which is a feature-rich and reactive application manager providing deployments, service lookups, health checks and much more.
