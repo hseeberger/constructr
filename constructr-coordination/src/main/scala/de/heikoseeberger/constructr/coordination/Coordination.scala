@@ -17,7 +17,7 @@
 package de.heikoseeberger.constructr.coordination
 
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, StatusCode }
+import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, StatusCode, Uri }
 import akka.stream.Materializer
 import akka.stream.scaladsl.{ Sink, Source, Flow }
 import scala.concurrent.duration.Duration
@@ -56,7 +56,7 @@ object Coordination {
 
   case class Refreshed[B <: Coordination.Backend](context: B#Context)
 
-  case class UnexpectedStatusCode(statusCode: StatusCode) extends RuntimeException(s"Unexpected status code $statusCode!")
+  case class UnexpectedStatusCode(uri: Uri, statusCode: StatusCode) extends RuntimeException(s"Unexpected status code $statusCode for URI $uri")
 
   def apply[B <: Coordination.Backend](backend: Backend)(prefix: String, clusterName: String, host: String, port: Int, sendFlow: SendFlow): Coordination[B] =
     backend match {

@@ -57,7 +57,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     send(Get(uri)).flatMap {
       case HttpResponse(OK, _, entity, _)       => unmarshalNodes(entity)
       case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => Nil)
-      case HttpResponse(other, _, entity, _)    => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case HttpResponse(other, _, entity, _)    => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
   }
 
@@ -74,8 +74,8 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
         Unmarshal(entity).to[String]
           .map(_.toBoolean)
           .map(isLocked => if (isLocked) LockResult.Success else LockResult.Failure)
-      case (HttpResponse(other, _, entity, _), _) =>
-        ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case (HttpResponse(other, _, entity, _), sessionId) =>
+        ignore(entity).map(_ => throw UnexpectedStatusCode(uri(sessionId), other))
     }
   }
 
@@ -88,8 +88,8 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
       response <- send(Put(uri(sessionId)))
     } yield (response, sessionId)
     responseAndSession.flatMap {
-      case (HttpResponse(OK, _, entity, _), sessionId) => ignore(entity).map(_ => SelfAdded[Coordination.Backend.Consul.type](sessionId))
-      case (HttpResponse(other, _, entity, _), _)      => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case (HttpResponse(OK, _, entity, _), sessionId)    => ignore(entity).map(_ => SelfAdded[Coordination.Backend.Consul.type](sessionId))
+      case (HttpResponse(other, _, entity, _), sessionId) => ignore(entity).map(_ => throw UnexpectedStatusCode(uri(sessionId), other))
     }
   }
 
@@ -97,7 +97,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     val uri = sessionUri.withPath(sessionUri.path / "renew" / sessionId)
     send(Put(uri)).flatMap {
       case HttpResponse(OK, _, entity, _)    => ignore(entity).map(_ => Refreshed[Coordination.Backend.Consul.type](sessionId))
-      case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
   }
 
@@ -117,7 +117,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     val body = HttpEntity(`application/json`, s"""{"behavior": "delete", "ttl": "${toSeconds(ttl)}s"}""")
     send(Put(createSessionUri, body)).flatMap {
       case HttpResponse(OK, _, entity, _)    => unmarshalSession(entity)
-      case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(createSessionUri, other))
     }
   }
 }

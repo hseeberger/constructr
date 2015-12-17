@@ -54,7 +54,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
     send(Get(nodesUri)).flatMap {
       case HttpResponse(OK, _, entity, _)       => unmarshalNodes(entity)
       case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => Nil)
-      case HttpResponse(other, _, entity, _)    => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case HttpResponse(other, _, entity, _)    => ignore(entity).map(_ => throw UnexpectedStatusCode(nodesUri, other))
     }
   }
 
@@ -66,21 +66,25 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
     send(Put(uri)).flatMap {
       case HttpResponse(Created, _, entity, _)            => ignore(entity).map(_ => LockResult.Success)
       case HttpResponse(PreconditionFailed, _, entity, _) => ignore(entity).map(_ => LockResult.Failure)
-      case HttpResponse(other, _, entity, _)              => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case HttpResponse(other, _, entity, _)              => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
   }
 
-  override def addSelf[N: NodeSerialization](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) =
-    send(Put(addOrRefreshUri(self, ttl))).flatMap {
+  override def addSelf[N: NodeSerialization](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) = {
+    val uri = addOrRefreshUri(self, ttl)
+    send(Put(uri)).flatMap {
       case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => SelfAdded[Coordination.Backend.Etcd.type](None))
-      case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
+  }
 
-  override def refresh[N: NodeSerialization](self: N, ttl: Duration, context: None.type)(implicit ec: ExecutionContext, mat: Materializer) =
-    send(Put(addOrRefreshUri(self, ttl))).flatMap {
+  override def refresh[N: NodeSerialization](self: N, ttl: Duration, context: None.type)(implicit ec: ExecutionContext, mat: Materializer) = {
+    val uri = addOrRefreshUri(self, ttl)
+    send(Put(uri)).flatMap {
       case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => Refreshed[Coordination.Backend.Etcd.type](None))
-      case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(other))
+      case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
+  }
 
   override def initialBackendContext = None
 
