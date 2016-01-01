@@ -2,10 +2,10 @@ import sbt._
 
 object Version {
   final val Akka             = "2.4.1"
-  final val AkkaHttp         = "2.0-M2"
-  final val AkkaLog4j        = "1.0.2"
+  final val AkkaHttp         = "2.0.1"
+  final val AkkaLog4j        = "1.0.3"
   final val Cassandra        = "3.0.0"
-  final val Log4j            = "2.4.1"
+  final val Log4j            = "2.5"
   final val RaptureJsonSpray = "1.1.0"
   final val Scala            = "2.11.7"
   final val ScalaTest        = "2.2.5"
