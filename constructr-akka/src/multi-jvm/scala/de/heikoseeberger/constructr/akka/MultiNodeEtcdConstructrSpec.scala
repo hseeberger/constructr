@@ -72,7 +72,7 @@ abstract class MultiNodeEtcdConstructrSpec extends MultiNodeSpec(EtcdConstructrM
   "Constructr should manage an Akka cluster" in {
     runOn(nodes.head) {
       "docker rm -f constructr-etcd".!(ProcessLogger(_ => ()))
-      s"""docker run --name constructr-etcd -d -p 3379:3379 quay.io/coreos/etcd:v2.2.2 -advertise-client-urls http://$host:3379 -listen-client-urls http://0.0.0.0:3379""".!
+      s"""docker run --name constructr-etcd -d -p 3379:3379 quay.io/coreos/etcd:v2.2.3 -advertise-client-urls http://$host:3379 -listen-client-urls http://0.0.0.0:3379""".!
 
       within(20.seconds.dilated) {
         awaitAssert {
