@@ -23,11 +23,16 @@ dockerfile.in(docker) := {
   val fatJar = assemblyOutputPath.in(assembly).value
   val fatJarTargetPath = s"/${fatJar.name}"
   new Dockerfile {
-    from(s"hseeberger/cassandra:${Version.Cassandra}")
-    add(fatJar, fatJarTargetPath)
-    env(
-      "CASSANDRA_SEED_PROVIDER" -> "de.heikoseeberger.constructr.cassandra.ConstructrSeedProvider",
-      "CLASSPATH" -> fatJarTargetPath
-    )
+    from(s"cassandra:${Version.Cassandra}")
+    copy(fatJar, fatJarTargetPath)
+    env("CLASSPATH" -> fatJarTargetPath)
+    run("/bin/bash",
+        "-c",
+        """|head -n 28 docker-entrypoint.sh > d && \
+           |echo $'\t'sed -ri \'s/\(- class_name:\) org.apache.cassandra.locator.SimpleSeedProvider/\\1 de.heikoseeberger.constructr.cassandra.ConstructrSeedProvider/\' \"$CASSANDRA_CONFIG/cassandra.yaml\" >> d && \
+           |tail -n +30 docker-entrypoint.sh >> d && \
+           |chmod --reference docker-entrypoint.sh d && \
+           |mv d docker-entrypoint.sh""".stripMargin
+      )
   }
 }
