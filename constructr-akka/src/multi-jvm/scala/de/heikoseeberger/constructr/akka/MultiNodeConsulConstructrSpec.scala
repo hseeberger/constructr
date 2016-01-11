@@ -66,7 +66,7 @@ class MultiNodeConsulConstructrSpecMultiJvmNode5 extends MultiNodeConsulConstruc
 
 abstract class MultiNodeConsulConstructrSpec[N: NodeSerialization] extends MultiNodeSpec(ConsulConstructrMultiNodeConfig)
     with FreeSpecLike with Matchers with BeforeAndAfterAll {
-  import EtcdConstructrMultiNodeConfig._
+  import ConsulConstructrMultiNodeConfig._
   import RequestBuilding._
   import system.dispatcher
 
