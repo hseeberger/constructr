@@ -18,12 +18,13 @@ package de.heikoseeberger.constructr.cassandra
 
 import akka.actor.{ Actor, ExtendedActorSystem, Extension, ExtensionKey }
 import de.heikoseeberger.constructr.coordination.Coordination
+import de.heikoseeberger.constructr.machine.ConstructrMachineSettings
 import java.net.InetAddress
 import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS }
 
 object Settings extends ExtensionKey[Settings]
 
-final class Settings private (system: ExtendedActorSystem) extends Extension {
+final class Settings private (system: ExtendedActorSystem) extends Extension with ConstructrMachineSettings {
 
   object coordination {
 
@@ -39,28 +40,6 @@ final class Settings private (system: ExtendedActorSystem) extends Extension {
     val port: Int = config.getInt("coordination.port")
   }
 
-  val coordinationRetries: Int = config.getInt("coordination-retries")
-
-  val coordinationTimeout: FiniteDuration = getDuration("coordination-timeout")
-
-  val maxNrOfSeedNodes: Int = {
-    val maxNrOfSeedNodes = config.getInt("max-nr-of-seed-nodes")
-    if (maxNrOfSeedNodes <= 0) Int.MaxValue else maxNrOfSeedNodes
-  }
-
-  val refreshInterval: FiniteDuration = getDuration("refresh-interval")
-
-  val retryGetNodesDelay: FiniteDuration = getDuration("retry-get-nodes-delay")
-
-  val ttlFactor: Double = {
-    val ttlFactor = config.getDouble("ttl-factor")
-    require(
-      ttlFactor > 1 + coordinationTimeout / refreshInterval,
-      s"ttl-factor must be greater than one plus coordination-timeout divided by refresh-interval, but was $ttlFactor!"
-    )
-    ttlFactor
-  }
-
   val clusterName: String = config.getString("cluster-name")
 
   val seedProviderTimeout: FiniteDuration = getDuration("seed-provider-timeout")
@@ -70,9 +49,7 @@ final class Settings private (system: ExtendedActorSystem) extends Extension {
     if (selfNode.toLowerCase == "auto") InetAddress.getLocalHost else InetAddress.getByName(selfNode)
   }
 
-  private def config = system.settings.config.getConfig("constructr.cassandra")
-
-  private def getDuration(key: String) = FiniteDuration(config.getDuration(key, MILLISECONDS), MILLISECONDS)
+  override protected def config = system.settings.config.getConfig("constructr.cassandra")
 }
 
 trait ActorSettings { this: Actor =>

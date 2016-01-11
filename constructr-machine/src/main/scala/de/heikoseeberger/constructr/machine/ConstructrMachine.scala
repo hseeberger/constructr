@@ -39,7 +39,7 @@ object ConstructrMachine {
     case object Refreshing extends State
   }
 
-  case class Data[N, B <: Coordination.Backend](nodes: List[N], coordinationRetriesLeft: Int, context: B#Context)
+  case class Data[N, B <: Coordination.Backend](nodes: List[N], nrOfAddSelfRetriesLeft: Int, context: B#Context)
 
   private final case class Retry(state: State)
 
@@ -51,7 +51,7 @@ object ConstructrMachine {
     selfNode: N,
     coordination: Coordination[B],
     coordinationTimeout: FiniteDuration,
-    coordinationRetries: Int,
+    nrOfAddSelfRetries: Int,
     retryGetNodesDelay: FiniteDuration,
     refreshInterval: FiniteDuration,
     ttlFactor: Double,
@@ -65,7 +65,7 @@ object ConstructrMachine {
       selfNode,
       coordination,
       coordinationTimeout,
-      coordinationRetries,
+      nrOfAddSelfRetries,
       retryGetNodesDelay,
       refreshInterval,
       ttlFactor,
@@ -81,7 +81,7 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
   val selfNode: N,
   coordination: Coordination[B],
   coordinationTimeout: FiniteDuration,
-  coordinationRetries: Int,
+  nrOfAddSelfRetries: Int,
   retryGetNodesDelay: FiniteDuration,
   refreshInterval: FiniteDuration,
   ttlFactor: Double,
@@ -97,7 +97,7 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
 
   private implicit val mat = ActorMaterializer()
 
-  private val overallCoordinationTimeout = coordinationTimeout * (1 + coordinationRetries)
+  private val overallCoordinationTimeout = coordinationTimeout * (1 + nrOfAddSelfRetries)
 
   require(maxNrOfSeedNodes > 0, s"max-nr-of-seed-nodes must be positive, but was $maxNrOfSeedNodes!")
   require(
@@ -107,7 +107,7 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
 
   private val addOrRefreshTtl = refreshInterval * ttlFactor
 
-  startWith(State.GettingNodes, Data(Nil, coordinationRetries, coordination.initialBackendContext))
+  startWith(State.GettingNodes, Data(Nil, nrOfAddSelfRetries, coordination.initialBackendContext))
 
   // Getting nodes
 
@@ -120,12 +120,12 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
   when(State.GettingNodes, coordinationTimeout) {
     case Event(Nil, data) =>
       log.debug("Received empty nodes, going to Locking")
-      goto(State.Locking).using(data.copy(Nil, coordinationRetries))
+      goto(State.Locking).using(data.copy(Nil))
 
     case Event(nodes: List[N] @unchecked, data) =>
       val seedNodes = nodes.take(maxNrOfSeedNodes)
       log.debug(s"Received nodes $nodes, using seed nodes $seedNodes, going to Joining")
-      goto(State.Joining).using(data.copy(seedNodes, coordinationRetries))
+      goto(State.Joining).using(data.copy(seedNodes))
   }
 
   // Locking
@@ -134,17 +134,17 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
     case _ -> State.Locking =>
       log.debug("Transitioning to Locking")
       val ttl = (2 * overallCoordinationTimeout + joinTimeout.getOrElse(Duration.Zero)) * ttlFactor // Keep lock until self added
-      coordination.lock(ttl).pipeTo(self)
+      coordination.lock(selfNode, ttl).pipeTo(self)
   }
 
   when(State.Locking, coordinationTimeout) {
     case Event(Coordination.LockResult.Success, data) =>
       log.debug("Successfully locked, going to Joining")
-      goto(State.Joining).using(data.copy(List(selfNode), coordinationRetries))
+      goto(State.Joining).using(data.copy(List(selfNode)))
 
     case Event(Coordination.LockResult.Failure, data) =>
       log.debug("Couldn't lock, going to BeforeGettingNodes")
-      goto(State.BeforeGettingNodes).using(data.copy(Nil, coordinationRetries))
+      goto(State.BeforeGettingNodes).using(data.copy(Nil))
   }
 
   // BeforeGettingNodes
@@ -186,7 +186,7 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
   when(State.AddingSelf, coordinationTimeout) {
     case Event(Coordination.SelfAdded(context: B#Context @unchecked), data) =>
       log.debug("Successfully added self, going to RefreshScheduled")
-      goto(State.RefreshScheduled).using(data.copy(coordinationRetriesLeft = coordinationRetries, context = context))
+      goto(State.RefreshScheduled).using(data.copy(context = context))
   }
 
   // RefreshScheduled
@@ -212,7 +212,7 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
   when(State.Refreshing, coordinationTimeout) {
     case Event(Coordination.Refreshed(_), _) =>
       log.debug("Successfully refreshed, going to RefreshScheduled")
-      goto(State.RefreshScheduled).using(stateData.copy(coordinationRetriesLeft = coordinationRetries))
+      goto(State.RefreshScheduled)
   }
 
   // Handle failure
@@ -222,13 +222,20 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
       log.error(cause, "Unexpected failure!")
       throw cause
 
-    case Event(StateTimeout, data @ Data(_, n, _)) if n > 0 =>
-      log.warning(s"Coordination timout in state $stateName, $n retries left!")
-      goto(stateName).using(data.copy(coordinationRetriesLeft = n - 1))
+    case Event(StateTimeout, data @ Data(_, n, _)) =>
+      stateName match {
+        case State.AddingSelf if n > 0 =>
+          log.warning(s"Coordination timout in state ${State.AddingSelf}, $n retries left!")
+          goto(stateName).using(data.copy(nrOfAddSelfRetriesLeft = n - 1))
 
-    case Event(StateTimeout, _) =>
-      log.error(s"Coordination timeout in state $stateName, no retries left!")
-      throw ConstructrMachine.StateTimeoutException(stateName)
+        case State.AddingSelf =>
+          log.error(s"Coordination timeout in state ${State.AddingSelf}, no retries left!")
+          throw ConstructrMachine.StateTimeoutException(stateName)
+
+        case _ =>
+          log.warning(s"Coordination timout in state $stateName, retrying!")
+          goto(stateName)
+      }
   }
 
   // Initialization

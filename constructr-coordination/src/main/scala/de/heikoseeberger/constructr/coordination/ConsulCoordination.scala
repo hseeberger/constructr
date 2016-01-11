@@ -62,7 +62,8 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  override def lock(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult] = {
+  override def lock[N](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult] = {
+    // TODO Make idempotent wrt retries! Actually a retry should not be fully idempotent, but update to the full TTL.
     val uriLock = baseUri.withPath(baseUri.path / "lock")
     val response = for {
       sessionId <- createSession(ttl)

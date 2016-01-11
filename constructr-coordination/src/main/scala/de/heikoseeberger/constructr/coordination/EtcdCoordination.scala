@@ -42,7 +42,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
         def jsonToNode(json: Json) = {
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
           val key = json.key.as[String].stripPrefix(s"$init/")
-          implicitly[NodeSerialization[N]].fromBytes(decode(key))
+          NodeSerialization.fromBytes(decode(key))
         }
         Json.parse(s).node match {
           case json"""{ "nodes": $nodes }""" => nodes.as[List[Json]].map(jsonToNode)
@@ -58,15 +58,43 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
     }
   }
 
-  override def lock(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult] = {
-    // TODO Make idempotent, e.g. by first GETting and comparing the value, just PUTting, if not there with value = self
-    val uri = baseUri
-      .withPath(baseUri.path / "lock")
-      .withQuery(Uri.Query("prevExist" -> "false", "ttl" -> toSeconds(ttl)))
-    send(Put(uri)).flatMap {
-      case HttpResponse(Created, _, entity, _)            => ignore(entity).map(_ => LockResult.Success)
-      case HttpResponse(PreconditionFailed, _, entity, _) => ignore(entity).map(_ => LockResult.Failure)
-      case HttpResponse(other, _, entity, _)              => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
+  override def lock[N](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult] = {
+    val lockUri = baseUri.withPath(baseUri.path / "lock").withQuery(Uri.Query("value" -> self.toString))
+    def readLock() = {
+      def unmarshalLockHolder(entity: ResponseEntity) = {
+        def toLockHolder(s: String) = {
+          import rapture.json._
+          import rapture.json.jsonBackends.spray._
+          Json.parse(s).node.value.as[String]
+        }
+        Unmarshal(entity).to[String].map(toLockHolder)
+      }
+      send(Get(lockUri)).flatMap {
+        case HttpResponse(OK, _, entity, _)       => unmarshalLockHolder(entity).map(Some(_))
+        case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => None)
+        case HttpResponse(other, _, entity, _)    => ignore(entity).map(_ => throw UnexpectedStatusCode(nodesUri, other))
+      }
+    }
+    def writeLock() = {
+      val uri = lockUri.withQuery(("prevExist" -> "false") +: ("ttl" -> toSeconds(ttl)) +: Uri.Query(lockUri.rawQueryString))
+      send(Put(uri)).flatMap {
+        case HttpResponse(Created, _, entity, _)            => ignore(entity).map(_ => LockResult.Success)
+        case HttpResponse(PreconditionFailed, _, entity, _) => ignore(entity).map(_ => LockResult.Failure)
+        case HttpResponse(other, _, entity, _)              => ignore(entity).map(_ => throw UnexpectedStatusCode(lockUri, other))
+      }
+    }
+    def updateLock(lockHolder: String) = {
+      val uri = lockUri.withQuery(("prevValue" -> lockHolder) +: ("ttl" -> toSeconds(ttl)) +: Uri.Query(lockUri.rawQueryString))
+      send(Put(uri)).flatMap {
+        case HttpResponse(OK, _, entity, _)                 => ignore(entity).map(_ => LockResult.Success)
+        case HttpResponse(PreconditionFailed, _, entity, _) => ignore(entity).map(_ => LockResult.Failure)
+        case HttpResponse(other, _, entity, _)              => ignore(entity).map(_ => throw UnexpectedStatusCode(lockUri, other))
+      }
+    }
+    readLock().flatMap {
+      case Some(lockHolder) if lockHolder == self.toString => updateLock(lockHolder)
+      case Some(_)                                         => Future.successful(LockResult.Failure)
+      case None                                            => writeLock()
     }
   }
 
@@ -89,6 +117,6 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
   override def initialBackendContext = None
 
   private def addOrRefreshUri[N: NodeSerialization](self: N, ttl: Duration) = nodesUri
-    .withPath(nodesUri.path / encode(implicitly[NodeSerialization[N]].toBytes(self)))
+    .withPath(nodesUri.path / encode(NodeSerialization.toBytes(self)))
     .withQuery(Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString))
 }

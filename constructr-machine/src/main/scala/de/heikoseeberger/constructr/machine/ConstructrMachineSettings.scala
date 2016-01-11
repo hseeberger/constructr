@@ -1,0 +1,49 @@
+/*
+ * Copyright 2015 Heiko Seeberger
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.heikoseeberger.constructr.machine
+
+import com.typesafe.config.Config
+import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS }
+
+trait ConstructrMachineSettings {
+
+  final val coordinationTimeout: FiniteDuration = getDuration("coordination-timeout")
+
+  final val maxNrOfSeedNodes: Int = {
+    val maxNrOfSeedNodes = config.getInt("max-nr-of-seed-nodes")
+    if (maxNrOfSeedNodes <= 0) Int.MaxValue else maxNrOfSeedNodes
+  }
+
+  final val nrOfAddSelfRetries: Int = config.getInt("nr-of-add-self-retries")
+
+  final val refreshInterval: FiniteDuration = getDuration("refresh-interval")
+
+  final val retryGetNodesDelay: FiniteDuration = getDuration("retry-get-nodes-delay")
+
+  final val ttlFactor: Double = {
+    val ttlFactor = config.getDouble("ttl-factor")
+    require(
+      ttlFactor > 1 + coordinationTimeout / refreshInterval,
+      s"ttl-factor must be greater than one plus coordination-timeout divided by refresh-interval, but was $ttlFactor!"
+    )
+    ttlFactor
+  }
+
+  protected def config: Config
+
+  protected def getDuration(key: String) = FiniteDuration(config.getDuration(key, MILLISECONDS), MILLISECONDS)
+}

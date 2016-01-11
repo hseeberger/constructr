@@ -41,9 +41,13 @@ object Coordination {
     }
   }
 
+  object NodeSerialization {
+    def fromBytes[N: NodeSerialization](bytes: Array[Byte]): N = implicitly[NodeSerialization[N]].fromBytes(bytes)
+    def toBytes[N: NodeSerialization](n: N): Array[Byte] = implicitly[NodeSerialization[N]].toBytes(n)
+  }
   trait NodeSerialization[N] {
     def fromBytes(bytes: Array[Byte]): N
-    def toBytes(a: N): Array[Byte]
+    def toBytes(n: N): Array[Byte]
   }
 
   sealed trait LockResult
@@ -73,7 +77,7 @@ abstract class Coordination[B <: Coordination.Backend] {
 
   def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[N]]
 
-  def lock(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult]
+  def lock[N](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult]
 
   def addSelf[N: NodeSerialization](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded[B]]
 
