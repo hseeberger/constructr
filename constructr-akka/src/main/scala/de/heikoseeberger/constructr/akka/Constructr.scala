@@ -17,6 +17,7 @@
 package de.heikoseeberger.constructr.akka
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, Address, Props, SupervisorStrategy, Terminated }
+import akka.cluster.ClusterEvent.{ MemberExited, MemberLeft, InitialStateAsEvents, MemberRemoved }
 import akka.cluster.{ Cluster, ClusterEvent }
 import akka.http.scaladsl.Http
 import de.heikoseeberger.constructr.coordination.Coordination
@@ -51,7 +52,8 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
 
   if (Cluster(context.system).settings.SeedNodes.isEmpty) {
     log.info("Creating constructr-machine, because no seed-nodes defined")
-    context.become(watchingMachine(context.watch(createConstructrMachine())))
+    Cluster(context.system).subscribe(self, InitialStateAsEvents, classOf[MemberLeft], classOf[MemberExited], classOf[MemberRemoved])
+    context.become(active(context.watch(createConstructrMachine())))
   } else {
     log.info("Stopping self, because seed-nodes defined")
     context.stop(self)
@@ -59,9 +61,13 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
 
   override def receive = Actor.emptyBehavior
 
-  private def watchingMachine(machine: ActorRef): Receive = {
+  private def active(machine: ActorRef): Receive = {
     case Terminated(`machine`) =>
       log.error("Terminating the system, because constructr-machine has terminated!")
+      context.system.terminate()
+
+    case MemberRemoved(member, _) if member.address == Cluster(context.system).selfAddress =>
+      log.error("Terminating the system, because member has been removed!")
       context.system.terminate()
   }
 
