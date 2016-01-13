@@ -18,12 +18,13 @@ package de.heikoseeberger.constructr.coordination
 
 import akka.http.scaladsl.client.RequestBuilding.{ Get, Put }
 import akka.http.scaladsl.model.StatusCodes.{ NotFound, OK }
-import akka.http.scaladsl.model.{ HttpEntity, HttpResponse, ResponseEntity, Uri }
+import akka.http.scaladsl.model.{ HttpEntity, HttpResponse, ResponseEntity, RequestEntity, Uri }
 import akka.http.scaladsl.model.MediaTypes.`application/json`
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
+import java.nio.charset.StandardCharsets.UTF_8
 
 final class ConsulCoordination(prefix: String, clusterName: String, host: String, port: Int)(implicit sendFlow: Coordination.SendFlow)
     extends Coordination[Coordination.Backend.Consul.type] {
@@ -63,13 +64,46 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
   }
 
   override def lock[N](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult] = {
-    // TODO Make idempotent wrt retries! Actually a retry should not be fully idempotent, but update to the full TTL.
     val uriLock = baseUri.withPath(baseUri.path / "lock")
-    val response = for {
-      sessionId <- createSession(ttl)
-      result <- putKeyWithSession(uriLock, sessionId)
-    } yield result
-    response.map(isLocked => if (isLocked) LockResult.Success else LockResult.Failure)
+    val body = HttpEntity(`application/json`, self.toString)
+    def readLock() = {
+      def unmarshallLockHolder(entity: ResponseEntity) = {
+        def toLockHolder(s: String) = {
+          import rapture.json._
+          import rapture.json.jsonBackends.spray._
+          def jsonToNode(json: Json) = {
+            val value = json.Value.as[String]
+            new String(decode(value), UTF_8)
+          }
+          Json.parse(s).as[List[Json]].map(jsonToNode).head
+        }
+        Unmarshal(entity).to[String].map(toLockHolder)
+      }
+      send(Get(uriLock)).flatMap {
+        case HttpResponse(OK, _, entity, _)       => unmarshallLockHolder(entity).map(Some(_))
+        case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => None)
+        case HttpResponse(other, _, entity, _)    => ignore(entity).map(_ => throw UnexpectedStatusCode(nodesUri, other))
+      }
+    }
+    def writeLock() = {
+      val lockWithNewSession = for {
+        sessionId <- createSession(ttl)
+        result <- putKeyWithSession(uriLock, sessionId, body)
+      } yield result
+      lockWithNewSession.map(isLocked => if (isLocked) LockResult.Success else LockResult.Failure)
+    }
+    def updateLock() = {
+      val lockWithPreviousSession = for {
+        Some(sessionId) <- retrieveSessionForKey(uriLock)
+        result <- renewSession(sessionId) if result
+      } yield sessionId
+      lockWithPreviousSession.map(_ => LockResult.Success) fallbackTo writeLock()
+    }
+    readLock().flatMap {
+      case Some(lockHolder) if lockHolder == self.toString => updateLock()
+      case Some(_)                                         => Future.successful(LockResult.Failure)
+      case None                                            => writeLock()
+    }
   }
 
   override def addSelf[N: NodeSerialization](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) = {
@@ -95,9 +129,9 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
 
   override def initialBackendContext = ""
 
-  private def putKeyWithSession(keyUri: Uri, sessionId: SessionId)(implicit ec: ExecutionContext, mat: Materializer): Future[Boolean] = {
+  private def putKeyWithSession(keyUri: Uri, sessionId: SessionId, content: RequestEntity = HttpEntity.Empty)(implicit ec: ExecutionContext, mat: Materializer): Future[Boolean] = {
     val uri = keyUri.withQuery(Uri.Query("acquire" -> sessionId))
-    send(Put(uri)).flatMap {
+    send(Put(uri, content)).flatMap {
       case HttpResponse(OK, _, entity, _)    => Unmarshal(entity).to[String].map(_.toBoolean)
       case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
