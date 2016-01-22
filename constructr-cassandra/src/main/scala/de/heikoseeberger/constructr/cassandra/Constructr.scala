@@ -31,8 +31,8 @@ object Constructr {
 
   def props(strategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy): Props = Props(new Constructr(strategy))
 
-  private def intoJoiningHandler[B <: Coordination.Backend](constructr: ActorRef)(machine: ConstructrMachine[InetAddress, B]) = {
-    constructr ! Constructr.Nodes(machine.nextStateData.nodes)
+  private def intoJoiningHandler[B <: Coordination.Backend](constructr: ActorRef)(machine: ConstructrMachine[InetAddress, B], seedNodes: List[InetAddress]) = {
+    constructr ! Constructr.Nodes(seedNodes)
   }
 }
 

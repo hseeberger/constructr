@@ -30,8 +30,8 @@ object Constructr {
 
   def props(strategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy): Props = Props(new Constructr(strategy))
 
-  private def intoJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]) = {
-    Cluster(machine.context.system).joinSeedNodes(machine.nextStateData.nodes) // An existing seed node process would be stopped
+  private def intoJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B], seedNodes: List[Address]) = {
+    Cluster(machine.context.system).joinSeedNodes(seedNodes) // An existing seed node process would be stopped
     Cluster(machine.context.system).subscribe(machine.self, InitialStateAsEvents, classOf[MemberJoined], classOf[MemberUp])
   }
 

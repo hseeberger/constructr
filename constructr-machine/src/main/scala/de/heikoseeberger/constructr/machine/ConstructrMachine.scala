@@ -57,7 +57,7 @@ object ConstructrMachine {
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
     joinTimeout: Option[FiniteDuration] = None,
-    intoJoiningHandler: ConstructrMachine[N, B] => Unit = (machine: ConstructrMachine[N, B]) => (),
+    intoJoiningHandler: (ConstructrMachine[N, B], List[N]) => Unit = (machine: ConstructrMachine[N, B], seedNodes: List[N]) => (),
     joiningFunction: ConstructrMachine[N, B] => StateFunction[N, B] = (machine: ConstructrMachine[N, B]) => { case machine.Event(machine.StateTimeout, _) => machine.goto(State.AddingSelf) }: StateFunction[N, B],
     outOfJoiningHandler: ConstructrMachine[N, B] => Unit = (machine: ConstructrMachine[N, B]) => ()
   ): Props =
@@ -87,7 +87,7 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
   ttlFactor: Double,
   maxNrOfSeedNodes: Int,
   joinTimeout: Option[FiniteDuration],
-  intoJoiningHandler: ConstructrMachine[N, B] => Unit,
+  intoJoiningHandler: (ConstructrMachine[N, B], List[N]) => Unit,
   joiningFunction: ConstructrMachine[N, B] => ConstructrMachine.StateFunction[N, B],
   outOfJoiningHandler: ConstructrMachine[N, B] => Unit
 )
@@ -123,9 +123,8 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
       goto(State.Locking).using(data.copy(Nil))
 
     case Event(nodes: List[N] @unchecked, data) =>
-      val seedNodes = nodes.take(maxNrOfSeedNodes)
-      log.debug(s"Received nodes $nodes, using seed nodes $seedNodes, going to Joining")
-      goto(State.Joining).using(data.copy(seedNodes))
+      log.debug(s"Received nodes $nodes, going to Joining")
+      goto(State.Joining).using(data.copy(nodes))
   }
 
   // Locking
@@ -164,7 +163,7 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
   onTransition {
     case _ -> State.Joining =>
       log.debug("Transitioning to Joining")
-      intoJoiningHandler(this)
+      intoJoiningHandler(this, nextStateData.nodes.take(maxNrOfSeedNodes))
   }
 
   when(State.Joining, joinTimeout.getOrElse(Duration.Zero))(joiningFunction(this))
