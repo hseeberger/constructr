@@ -24,8 +24,6 @@ import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object ConstructrMachine {
 
-  type TransitionHandler[A] = PartialFunction[(State, State), Unit]
-
   type StateFunction[A, B <: Coordination.Backend] = PartialFunction[FSM.Event[Data[A, B]], FSM.State[State, Data[A, B]]]
 
   sealed trait State
