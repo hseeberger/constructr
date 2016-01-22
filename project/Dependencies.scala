@@ -2,7 +2,7 @@ import sbt._
 
 object Version {
   final val Akka             = "2.4.1"
-  final val AkkaHttp         = "2.0.1"
+  final val AkkaHttp         = "2.0.2"
   final val AkkaLog4j        = "1.0.3"
   final val Cassandra        = "3.0.2"
   final val Log4j            = "2.5"
@@ -20,7 +20,6 @@ object Library {
   val akkaSlf4j            = "com.typesafe.akka"        %% "akka-slf4j"              % Version.Akka
   val akkaTestkit          = "com.typesafe.akka"        %% "akka-testkit"            % Version.Akka
   val cassandraAll         = "org.apache.cassandra"     %  "cassandra-all"           % Version.Cassandra exclude("commons-logging", "commons-logging")
-  val log4jApi             = "org.apache.logging.log4j" %  "log4j-api"               % Version.Log4j
   val log4jCore            = "org.apache.logging.log4j" %  "log4j-core"              % Version.Log4j
   val raptureJsonSpray     = "com.propensive"           %% "rapture-json-spray"      % Version.RaptureJsonSpray
   val scalaTest            = "org.scalatest"            %% "scalatest"               % Version.ScalaTest
