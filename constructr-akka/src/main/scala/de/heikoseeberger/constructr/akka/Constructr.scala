@@ -16,39 +16,21 @@
 
 package de.heikoseeberger.constructr.akka
 
-import akka.actor.{ Actor, ActorLogging, ActorRef, Address, Props, SupervisorStrategy, Terminated }
-import akka.cluster.ClusterEvent.{ MemberExited, MemberLeft, InitialStateAsEvents, MemberRemoved }
-import akka.cluster.{ Cluster, ClusterEvent }
+import akka.actor.{ Actor, ActorLogging, ActorRef, Props, SupervisorStrategy, Terminated }
+import akka.cluster.Cluster
+import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberExited, MemberLeft, MemberRemoved }
 import akka.http.scaladsl.Http
 import de.heikoseeberger.constructr.coordination.Coordination
-import de.heikoseeberger.constructr.machine.ConstructrMachine
 
 object Constructr {
-  import ClusterEvent._
 
-  final val Name = "constructr-akka"
+  final val Name = "constructr"
 
   def props(strategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy): Props = Props(new Constructr(strategy))
-
-  private def intoJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B], seedNodes: List[Address]) = {
-    Cluster(machine.context.system).joinSeedNodes(seedNodes) // An existing seed node process would be stopped
-    Cluster(machine.context.system).subscribe(machine.self, InitialStateAsEvents, classOf[MemberJoined], classOf[MemberUp])
-  }
-
-  private def joiningFunction[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]): ConstructrMachine.StateFunction[Address, B] = {
-    case machine.Event(MemberJoined(member), _) if member.address == machine.selfNode => machine.goto(ConstructrMachine.State.AddingSelf)
-    case machine.Event(MemberJoined(member), _)                                       => machine.stay()
-    case machine.Event(MemberUp(member), _) if member.address == machine.selfNode     => machine.goto(ConstructrMachine.State.AddingSelf)
-    case machine.Event(MemberUp(member), _)                                           => machine.stay()
-  }
-
-  private def outOfJoiningHandler[B <: Coordination.Backend](machine: ConstructrMachine[Address, B]) =
-    Cluster(machine.context.system).unsubscribe(machine.self)
 }
 
 final class Constructr private (override val supervisorStrategy: SupervisorStrategy)
     extends Actor with ActorLogging with ActorSettings {
-  import Constructr._
 
   if (Cluster(context.system).settings.SeedNodes.isEmpty) {
     log.info("Creating constructr-machine, because no seed-nodes defined")
@@ -78,7 +60,7 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
       Coordination(backend)("akka", context.system.name, host, port, sendFlow)
     }
     context.actorOf(
-      ConstructrMachine.props(
+      AkkaConstructrMachine.props(
         Cluster(context.system).selfAddress,
         coordination,
         settings.coordinationTimeout,
@@ -87,12 +69,9 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
         settings.refreshInterval,
         settings.ttlFactor,
         settings.maxNrOfSeedNodes,
-        Some(settings.joinTimeout),
-        intoJoiningHandler,
-        joiningFunction,
-        outOfJoiningHandler
+        Some(settings.joinTimeout)
       ),
-      ConstructrMachine.Name
+      AkkaConstructrMachine.Name
     )
   }
 }

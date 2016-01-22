@@ -16,15 +16,13 @@
 
 package de.heikoseeberger.constructr.machine
 
-import akka.actor.{ FSM, Props, Status }
+import akka.actor.{ FSM, Status }
 import akka.pattern.pipe
-import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.ImplicitMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
 import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object ConstructrMachine {
-
-  type StateFunction[A, B <: Coordination.Backend] = PartialFunction[FSM.Event[Data[A, B]], FSM.State[State, Data[A, B]]]
 
   sealed trait State
   object State {
@@ -42,41 +40,10 @@ object ConstructrMachine {
   private final case class Retry(state: State)
 
   final case class StateTimeoutException(state: State) extends RuntimeException(s"State timeout triggered in state $state!")
-
-  final val Name = "constructr-machine"
-
-  def props[N: Coordination.NodeSerialization, B <: Coordination.Backend](
-    selfNode: N,
-    coordination: Coordination[B],
-    coordinationTimeout: FiniteDuration,
-    nrOfAddSelfRetries: Int,
-    retryGetNodesDelay: FiniteDuration,
-    refreshInterval: FiniteDuration,
-    ttlFactor: Double,
-    maxNrOfSeedNodes: Int,
-    joinTimeout: Option[FiniteDuration] = None,
-    intoJoiningHandler: (ConstructrMachine[N, B], List[N]) => Unit = (_: ConstructrMachine[N, B], _: List[N]) => (),
-    joiningFunction: ConstructrMachine[N, B] => StateFunction[N, B] = (machine: ConstructrMachine[N, B]) => { case machine.Event(machine.StateTimeout, _) => machine.goto(State.AddingSelf) }: StateFunction[N, B],
-    outOfJoiningHandler: ConstructrMachine[N, B] => Unit = (_: ConstructrMachine[N, B]) => ()
-  ): Props =
-    Props(new ConstructrMachine[N, B](
-      selfNode,
-      coordination,
-      coordinationTimeout,
-      nrOfAddSelfRetries,
-      retryGetNodesDelay,
-      refreshInterval,
-      ttlFactor,
-      maxNrOfSeedNodes,
-      joinTimeout,
-      intoJoiningHandler,
-      joiningFunction,
-      outOfJoiningHandler
-    ))
 }
 
-final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordination.Backend] private (
-  val selfNode: N,
+abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordination.Backend](
+  selfNode: N,
   coordination: Coordination[B],
   coordinationTimeout: FiniteDuration,
   nrOfAddSelfRetries: Int,
@@ -84,16 +51,11 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
   refreshInterval: FiniteDuration,
   ttlFactor: Double,
   maxNrOfSeedNodes: Int,
-  joinTimeout: Option[FiniteDuration],
-  intoJoiningHandler: (ConstructrMachine[N, B], List[N]) => Unit,
-  joiningFunction: ConstructrMachine[N, B] => ConstructrMachine.StateFunction[N, B],
-  outOfJoiningHandler: ConstructrMachine[N, B] => Unit
+  joinTimeout: Option[FiniteDuration]
 )
-    extends FSM[ConstructrMachine.State, ConstructrMachine.Data[N, B]] {
+    extends FSM[ConstructrMachine.State, ConstructrMachine.Data[N, B]] with ImplicitMaterializer {
   import ConstructrMachine._
   import context.dispatcher
-
-  private implicit val mat = ActorMaterializer()
 
   private val overallCoordinationTimeout = coordinationTimeout * (1 + nrOfAddSelfRetries)
 
@@ -161,16 +123,24 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
   onTransition {
     case _ -> State.Joining =>
       log.debug("Transitioning to Joining")
-      intoJoiningHandler(this, nextStateData.nodes.take(maxNrOfSeedNodes))
+      intoJoiningHandler()
   }
 
-  when(State.Joining, joinTimeout.getOrElse(Duration.Zero))(joiningFunction(this))
+  when(State.Joining, joinTimeout.getOrElse(Duration.Zero))(joiningFunction)
 
   onTransition {
     case State.Joining -> _ =>
       log.debug("Transitioning out of Joining")
-      outOfJoiningHandler(this)
+      outOfJoiningHandler()
   }
+
+  protected def intoJoiningHandler(): Unit
+
+  protected def joiningFunction: StateFunction
+
+  protected def outOfJoiningHandler(): Unit
+
+  final protected def seedNodes(nodes: List[N]): List[N] = nodes.take(maxNrOfSeedNodes)
 
   // AddingSelf
 
