@@ -41,7 +41,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
 
   private val nodesUri = baseUri.withPath(baseUri.path / "nodes")
 
-  override def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[N]] = {
+  override def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer) = {
     def unmarshalNodes(entity: ResponseEntity) = {
       def toNodes(s: String) = {
         import rapture.json._
@@ -63,7 +63,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  override def lock[N](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult] = {
+  override def lock[N](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) = {
     val uriLock = baseUri.withPath(baseUri.path / "lock")
     val body = HttpEntity(`application/json`, self.toString)
     def readLock() = {
