@@ -2,7 +2,7 @@ name := "constructr-cassandra"
 
 libraryDependencies ++= List(
   Library.akkaActor,
-  Library.akkaSlf4j,
+  Library.akkaSlf4j, // because cassandraAll depends on Logback and hence on SLF4J
   Library.cassandraAll % "provided",
   Library.akkaTestkit  % "test",
   Library.scalaTest    % "test"
