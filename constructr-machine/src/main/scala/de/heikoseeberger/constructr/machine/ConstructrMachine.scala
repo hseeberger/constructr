@@ -46,8 +46,8 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
   selfNode: N,
   coordination: Coordination[B],
   coordinationTimeout: FiniteDuration,
-  nrOfAddSelfRetries: Int,
-  retryGetNodesDelay: FiniteDuration,
+  nrOfRetries: Int,
+  retryDelay: FiniteDuration,
   refreshInterval: FiniteDuration,
   ttlFactor: Double,
   maxNrOfSeedNodes: Int,
@@ -57,7 +57,7 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
   import ConstructrMachine._
   import context.dispatcher
 
-  private val overallCoordinationTimeout = coordinationTimeout * (1 + nrOfAddSelfRetries)
+  private val overallCoordinationTimeout = coordinationTimeout * (1 + nrOfRetries)
 
   require(maxNrOfSeedNodes > 0, s"max-nr-of-seed-nodes must be positive, but was $maxNrOfSeedNodes!")
   require(
@@ -67,7 +67,7 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
 
   private val addOrRefreshTtl = refreshInterval * ttlFactor
 
-  startWith(State.GettingNodes, Data(Nil, nrOfAddSelfRetries, coordination.initialBackendContext))
+  startWith(State.GettingNodes, Data(Nil, nrOfRetries, coordination.initialBackendContext))
 
   // Getting nodes
 
@@ -112,9 +112,9 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
     case _ -> State.BeforeGettingNodes => log.debug("Transitioning to BeforeGettingNodes")
   }
 
-  when(State.BeforeGettingNodes, retryGetNodesDelay) {
+  when(State.BeforeGettingNodes, retryDelay) {
     case Event(StateTimeout, _) =>
-      log.debug(s"Waited for $retryGetNodesDelay, going to GettingNodes")
+      log.debug(s"Waited for $retryDelay, going to GettingNodes")
       goto(State.GettingNodes)
   }
 
