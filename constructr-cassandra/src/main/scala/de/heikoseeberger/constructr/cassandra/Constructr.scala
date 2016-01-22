@@ -74,7 +74,6 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
         settings.refreshInterval,
         settings.ttlFactor,
         settings.maxNrOfSeedNodes,
-        None,
         self
       ),
       CassandraConstructrMachine.Name

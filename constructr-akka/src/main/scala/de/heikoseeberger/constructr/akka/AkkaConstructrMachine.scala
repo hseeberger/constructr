@@ -36,7 +36,7 @@ object AkkaConstructrMachine {
     refreshInterval: FiniteDuration,
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
-    joinTimeout: Option[FiniteDuration]
+    joinTimeout: FiniteDuration
   ): Props = Props(new AkkaConstructrMachine[B](
     selfNode,
     coordination,
@@ -59,7 +59,7 @@ final class AkkaConstructrMachine[B <: Coordination.Backend](
   refreshInterval: FiniteDuration,
   ttlFactor: Double,
   maxNrOfSeedNodes: Int,
-  joinTimeout: Option[FiniteDuration]
+  joinTimeout: FiniteDuration
 ) extends ConstructrMachine[Address, B](
   selfNode,
   coordination,

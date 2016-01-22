@@ -20,7 +20,7 @@ import akka.actor.{ FSM, Status }
 import akka.pattern.pipe
 import akka.stream.scaladsl.ImplicitMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
-import scala.concurrent.duration.{ Duration, FiniteDuration }
+import scala.concurrent.duration.FiniteDuration
 
 object ConstructrMachine {
 
@@ -51,7 +51,7 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
   refreshInterval: FiniteDuration,
   ttlFactor: Double,
   maxNrOfSeedNodes: Int,
-  joinTimeout: Option[FiniteDuration]
+  joinTimeout: FiniteDuration
 )
     extends FSM[ConstructrMachine.State, ConstructrMachine.Data[N, B]] with ImplicitMaterializer {
   import ConstructrMachine._
@@ -92,7 +92,7 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
   onTransition {
     case _ -> State.Locking =>
       log.debug("Transitioning to Locking")
-      val ttl = (2 * overallCoordinationTimeout + joinTimeout.getOrElse(Duration.Zero)) * ttlFactor // Keep lock until self added
+      val ttl = (2 * overallCoordinationTimeout + joinTimeout) * ttlFactor // Keep lock until self added
       coordination.lock(selfNode, ttl).pipeTo(self)
   }
 
@@ -126,7 +126,7 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
       intoJoiningHandler()
   }
 
-  when(State.Joining, joinTimeout.getOrElse(Duration.Zero))(joiningFunction)
+  when(State.Joining, joinTimeout)(joiningFunction)
 
   onTransition {
     case State.Joining -> _ =>

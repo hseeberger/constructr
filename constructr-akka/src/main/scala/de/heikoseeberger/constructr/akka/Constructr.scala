@@ -69,7 +69,7 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
         settings.refreshInterval,
         settings.ttlFactor,
         settings.maxNrOfSeedNodes,
-        Some(settings.joinTimeout)
+        settings.joinTimeout
       ),
       AkkaConstructrMachine.Name
     )

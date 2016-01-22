@@ -20,7 +20,7 @@ import akka.actor.{ ActorRef, Props }
 import de.heikoseeberger.constructr.coordination.Coordination
 import de.heikoseeberger.constructr.machine.ConstructrMachine
 import java.net.InetAddress
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object CassandraConstructrMachine {
 
@@ -35,7 +35,6 @@ object CassandraConstructrMachine {
     refreshInterval: FiniteDuration,
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
-    joinTimeout: Option[FiniteDuration],
     constructr: ActorRef
   ): Props = Props(new CassandraConstructrMachine[B](
     selfNode,
@@ -46,7 +45,6 @@ object CassandraConstructrMachine {
     refreshInterval,
     ttlFactor,
     maxNrOfSeedNodes,
-    joinTimeout,
     constructr
   ))
 }
@@ -60,7 +58,6 @@ final class CassandraConstructrMachine[B <: Coordination.Backend](
   refreshInterval: FiniteDuration,
   ttlFactor: Double,
   maxNrOfSeedNodes: Int,
-  joinTimeout: Option[FiniteDuration],
   constructr: ActorRef
 ) extends ConstructrMachine[InetAddress, B](
   selfNode,
@@ -71,7 +68,7 @@ final class CassandraConstructrMachine[B <: Coordination.Backend](
   refreshInterval,
   ttlFactor,
   maxNrOfSeedNodes,
-  joinTimeout
+  Duration.Zero
 ) {
   import ConstructrMachine._
 
