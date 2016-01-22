@@ -210,7 +210,7 @@ final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordinati
   }
 
   when(State.Refreshing, coordinationTimeout) {
-    case Event(Coordination.Refreshed(_), _) =>
+    case Event(Coordination.Refreshed, _) =>
       log.debug("Successfully refreshed, going to RefreshScheduled")
       goto(State.RefreshScheduled)
   }

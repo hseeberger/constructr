@@ -122,7 +122,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
   override def refresh[N: NodeSerialization](self: N, ttl: Duration, sessionId: String)(implicit ec: ExecutionContext, mat: Materializer) = {
     val uri = sessionUri.withPath(sessionUri.path / "renew" / sessionId)
     send(Put(uri)).flatMap {
-      case HttpResponse(OK, _, entity, _)    => ignore(entity).map(_ => Refreshed[Coordination.Backend.Consul.type](sessionId))
+      case HttpResponse(OK, _, entity, _)    => ignore(entity).map(_ => Refreshed)
       case HttpResponse(other, _, entity, _) => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
   }

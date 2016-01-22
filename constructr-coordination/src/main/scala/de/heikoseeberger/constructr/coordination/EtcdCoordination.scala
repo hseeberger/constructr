@@ -109,7 +109,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
   override def refresh[N: NodeSerialization](self: N, ttl: Duration, context: None.type)(implicit ec: ExecutionContext, mat: Materializer) = {
     val uri = addOrRefreshUri(self, ttl)
     send(Put(uri)).flatMap {
-      case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => Refreshed[Coordination.Backend.Etcd.type](None))
+      case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => Refreshed)
       case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
   }
