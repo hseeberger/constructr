@@ -43,17 +43,16 @@ object ConstructrMachine {
 }
 
 abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordination.Backend](
-  selfNode: N,
-  coordination: Coordination[B],
-  coordinationTimeout: FiniteDuration,
-  nrOfRetries: Int,
-  retryDelay: FiniteDuration,
-  refreshInterval: FiniteDuration,
-  ttlFactor: Double,
-  maxNrOfSeedNodes: Int,
-  joinTimeout: FiniteDuration
-)
-    extends FSM[ConstructrMachine.State, ConstructrMachine.Data[N, B]] with ImplicitMaterializer {
+    selfNode: N,
+    coordination: Coordination[B],
+    coordinationTimeout: FiniteDuration,
+    nrOfRetries: Int,
+    retryDelay: FiniteDuration,
+    refreshInterval: FiniteDuration,
+    ttlFactor: Double,
+    maxNrOfSeedNodes: Int,
+    joinTimeout: FiniteDuration
+) extends FSM[ConstructrMachine.State, ConstructrMachine.Data[N, B]] with ImplicitMaterializer {
   import ConstructrMachine._
   import context.dispatcher
 
