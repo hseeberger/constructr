@@ -57,9 +57,9 @@ object ConstructrMachine {
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
     joinTimeout: Option[FiniteDuration] = None,
-    intoJoiningHandler: (ConstructrMachine[N, B], List[N]) => Unit = (machine: ConstructrMachine[N, B], seedNodes: List[N]) => (),
+    intoJoiningHandler: (ConstructrMachine[N, B], List[N]) => Unit = (_: ConstructrMachine[N, B], _: List[N]) => (),
     joiningFunction: ConstructrMachine[N, B] => StateFunction[N, B] = (machine: ConstructrMachine[N, B]) => { case machine.Event(machine.StateTimeout, _) => machine.goto(State.AddingSelf) }: StateFunction[N, B],
-    outOfJoiningHandler: ConstructrMachine[N, B] => Unit = (machine: ConstructrMachine[N, B]) => ()
+    outOfJoiningHandler: ConstructrMachine[N, B] => Unit = (_: ConstructrMachine[N, B]) => ()
   ): Props =
     Props(new ConstructrMachine[N, B](
       selfNode,
