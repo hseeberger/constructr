@@ -38,7 +38,7 @@ If something goes wrong, e.g. a timeout (after configurable retries are exhauste
 
 ## ConstructR for Akka
 
-constructr-akka depends on Akka 2.4.1 and is published to Bintray and Maven Central.
+constructr-akka depends on Akka 2.4.2-RC1 and is published to Bintray and Maven Central.
 
 ``` scala
 // All releases including intermediate ones are published here,
@@ -46,7 +46,7 @@ constructr-akka depends on Akka 2.4.1 and is published to Bintray and Maven Cent
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= List(
-  "de.heikoseeberger" %% "constructr-akka" % "0.8.2",
+  "de.heikoseeberger" %% "constructr-akka" % "0.9.0",
   ...
 )
 ```
@@ -90,7 +90,7 @@ constructr-cassandra depends on Cassandra 3.0.2 and is published to Bintray and 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= List(
-  "de.heikoseeberger" %% "constructr-cassandra" % "0.8.2",
+  "de.heikoseeberger" %% "constructr-cassandra" % "0.9.0",
   ...
 )
 ```
