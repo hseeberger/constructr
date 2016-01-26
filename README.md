@@ -69,12 +69,12 @@ constructr.akka {
     port    = 2379
   }
 
-  coordination-retries  = 2
-  coordination-timeout  = 3 seconds
-  max-nr-of-seed-nodes  = 0          // Any non-positive value means Int.MaxValue
-  refresh-interval      = 30 seconds // TTL is refresh-interval * ttl-factor
-  retry-get-nodes-delay = 3 seconds
-  ttl-factor            = 1.5        // Must be greater than 1 + (coordination-timeout * (1 + coordination-retries) / refresh-interval)!
+  coordination-retries = 2          // Nr. of tries are nr. of retries + 1
+  coordination-timeout = 3 seconds  // Maximum response time for coordination service (e.g. etcd)
+  max-nr-of-seed-nodes = 0          // Any nonpositive value means Int.MaxValue
+  refresh-interval     = 30 seconds // TTL is refresh-interval * ttl-factor
+  retry-delay          = 3 seconds  // If lock couldn't be acquired, give other node some time to add self
+  ttl-factor           = 1.5        // Must be greater than 1 + (coordination-timeout * (1 + coordination-retries) / refresh-interval)!
 
   join-timeout          = 10 seconds // Might depend on cluster size and network properties
 }
@@ -115,12 +115,12 @@ constructr.cassandra {
     port    = 2379
   }
 
-  coordination-retries  = 2
-  coordination-timeout  = 3 seconds
-  max-nr-of-seed-nodes  = 0          // Any non-positive value means Int.MaxValue
-  refresh-interval      = 30 seconds // TTL is refresh-interval * ttl-factor
-  retry-get-nodes-delay = 3 seconds
-  ttl-factor            = 1.5        // Must be greater than 1 + (coordination-timeout * (1 + coordination-retries) / refresh-interval)!
+  coordination-retries = 2          // Nr. of tries are nr. of retries + 1
+  coordination-timeout = 3 seconds  // Maximum response time for coordination service (e.g. etcd)
+  max-nr-of-seed-nodes = 0          // Any nonpositive value means Int.MaxValue
+  refresh-interval     = 30 seconds // TTL is refresh-interval * ttl-factor
+  retry-delay          = 3 seconds  // If lock couldn't be acquired, give other node some time to add self
+  ttl-factor           = 1.5        // Must be greater than 1 + (coordination-timeout * (1 + coordination-retries) / refresh-interval)!
 
   cluster-name          = "default"                       // Must match cluster_name in cassandra.yaml!
   cluster-name          = ${?CASSANDRA_CLUSTER_NAME}      // Works for Docker image

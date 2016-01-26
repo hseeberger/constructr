@@ -21,6 +21,8 @@ import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS }
 
 trait ConstructrMachineSettings {
 
+  final val coordinationRetries: Int = config.getInt("coordination-retries")
+
   final val coordinationTimeout: FiniteDuration = getDuration("coordination-timeout")
 
   final val maxNrOfSeedNodes: Int = {
@@ -28,20 +30,11 @@ trait ConstructrMachineSettings {
     if (maxNrOfSeedNodes <= 0) Int.MaxValue else maxNrOfSeedNodes
   }
 
-  final val nrOfRetries: Int = config.getInt("nr-of-retries")
-
   final val refreshInterval: FiniteDuration = getDuration("refresh-interval")
 
   final val retryDelay: FiniteDuration = getDuration("retry-delay")
 
-  final val ttlFactor: Double = {
-    val ttlFactor = config.getDouble("ttl-factor")
-    require(
-      ttlFactor > 1 + coordinationTimeout / refreshInterval,
-      s"ttl-factor must be greater than one plus coordination-timeout divided by refresh-interval, but was $ttlFactor!"
-    )
-    ttlFactor
-  }
+  final val ttlFactor: Double = config.getDouble("ttl-factor")
 
   protected def config: Config
 

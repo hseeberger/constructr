@@ -16,6 +16,8 @@
 
 package de.heikoseeberger.constructr
 
+import scala.concurrent.duration.{ Duration, FiniteDuration }
+
 package object machine {
 
   val Traversable = scala.collection.immutable.Traversable
@@ -29,4 +31,11 @@ package object machine {
 
   val IndexedSeq = scala.collection.immutable.IndexedSeq
   type IndexedSeq[+A] = scala.collection.immutable.IndexedSeq[A]
+
+  implicit class DurationOps(val duration: Duration) extends AnyVal {
+    def toFinite: FiniteDuration = duration match {
+      case Duration(n, unit) => Duration(n, unit)
+      case _                 => throw new IllegalStateException("Can't convert an infinite duration to a finite one!")
+    }
+  }
 }

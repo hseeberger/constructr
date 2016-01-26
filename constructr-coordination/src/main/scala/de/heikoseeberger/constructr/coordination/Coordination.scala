@@ -20,7 +20,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, StatusCode, Uri }
 import akka.stream.Materializer
 import akka.stream.scaladsl.{ Sink, Source, Flow }
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ ExecutionContext, Future }
 
 object Coordination {
@@ -77,11 +77,11 @@ abstract class Coordination[B <: Coordination.Backend] {
 
   def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[N]]
 
-  def lock[N](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult]
+  def lock[N](self: N, ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult]
 
-  def addSelf[N: NodeSerialization](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded[B]]
+  def addSelf[N: NodeSerialization](self: N, ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded[B]]
 
-  def refresh[N: NodeSerialization](self: N, ttl: Duration, context: B#Context)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed.type]
+  def refresh[N: NodeSerialization](self: N, ttl: FiniteDuration, context: B#Context)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed.type]
 
   def initialBackendContext: B#Context
 }
