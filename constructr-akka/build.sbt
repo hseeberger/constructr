@@ -16,7 +16,7 @@ unmanagedSourceDirectories.in(MultiJvm) := List(scalaSource.in(MultiJvm).value)
 test.in(Test) := { test.in(MultiJvm).value; test.in(Test).value }
 
 inConfig(MultiJvm)(SbtScalariform.configScalariformSettings)
-inConfig(MultiJvm)(compileInputs.in(compile) := { format.value; compileInputs.in(compile).value })
+inConfig(MultiJvm)(compileInputs.in(compile) := { scalariformFormat.value; compileInputs.in(compile).value })
 
 AutomateHeaderPlugin.automateFor(Compile, Test, MultiJvm)
 HeaderPlugin.settingsFor(Compile, Test, MultiJvm)
