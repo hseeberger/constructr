@@ -69,7 +69,7 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
         settings.selfNode,
         coordination,
         settings.coordinationTimeout,
-        settings.nrOfRetries,
+        settings.coordinationRetries,
         settings.retryDelay,
         settings.refreshInterval,
         settings.ttlFactor,

@@ -44,5 +44,5 @@ package object coordination {
 
   def decode(s: String): Array[Byte] = Base64.getUrlDecoder.decode(s)
 
-  def toSeconds(duration: Duration) = (duration.toSeconds + 1).toString
+  def toSeconds(duration: Duration): String = (duration.toSeconds + 1).toString
 }

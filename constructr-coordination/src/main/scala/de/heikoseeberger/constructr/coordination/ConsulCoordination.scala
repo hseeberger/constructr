@@ -22,7 +22,7 @@ import akka.http.scaladsl.model.{ HttpEntity, HttpResponse, ResponseEntity, Requ
 import akka.http.scaladsl.model.MediaTypes.`application/json`
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ ExecutionContext, Future }
 import java.nio.charset.StandardCharsets.UTF_8
 
@@ -63,7 +63,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  override def lock[N](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) = {
+  override def lock[N](self: N, ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer) = {
     val uriLock = baseUri.withPath(baseUri.path / "lock")
     val body = HttpEntity(`application/json`, self.toString)
     def readLock() = {
@@ -106,7 +106,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  override def addSelf[N: NodeSerialization](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) = {
+  override def addSelf[N: NodeSerialization](self: N, ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer) = {
     val keyUri = nodesUri.withPath(nodesUri.path / encode(implicitly[NodeSerialization[N]].toBytes(self)))
     val addSelfWithPreviousSession = for {
       Some(sessionId) <- retrieveSessionForKey(keyUri)
@@ -119,7 +119,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     (addSelfWithPreviousSession fallbackTo addSelftWithNewSession).map(SelfAdded[Coordination.Backend.Consul.type])
   }
 
-  override def refresh[N: NodeSerialization](self: N, ttl: Duration, sessionId: String)(implicit ec: ExecutionContext, mat: Materializer) = {
+  override def refresh[N: NodeSerialization](self: N, ttl: FiniteDuration, sessionId: String)(implicit ec: ExecutionContext, mat: Materializer) = {
     val uri = sessionUri.withPath(sessionUri.path / "renew" / sessionId)
     send(Put(uri)).flatMap {
       case HttpResponse(OK, _, entity, _)    => ignore(entity).map(_ => Refreshed)
@@ -163,7 +163,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  private def createSession(ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SessionId] = {
+  private def createSession(ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer): Future[SessionId] = {
     def unmarshalSessionId(entity: ResponseEntity) = {
       def toSession(s: String) = {
         import rapture.json._
