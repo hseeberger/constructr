@@ -16,45 +16,88 @@
 
 package de.heikoseeberger.constructr.machine
 
-import akka.actor.{ FSM, Status }
+import akka.actor.{ FSM, Props, Status }
 import akka.pattern.pipe
-import akka.stream.scaladsl.ImplicitMaterializer
+import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object ConstructrMachine {
+
+  type TransitionHandler[A] = PartialFunction[(State, State), Unit]
+
+  type StateFunction[A, B <: Coordination.Backend] = PartialFunction[FSM.Event[Data[A, B]], FSM.State[State, Data[A, B]]]
 
   sealed trait State
   object State {
     case object GettingNodes extends State
     case object Locking extends State
+    case object BeforeGettingNodes extends State
     case object Joining extends State
     case object AddingSelf extends State
     case object RefreshScheduled extends State
     case object Refreshing extends State
-    case object Retrying extends State
   }
 
-  case class Data[N, B <: Coordination.Backend](nodes: List[N], nrOfRetriesLeft: Int, context: B#Context, retryState: State)
+  case class Data[N, B <: Coordination.Backend](nodes: List[N], nrOfAddSelfRetriesLeft: Int, context: B#Context)
+
+  private final case class Retry(state: State)
 
   final case class StateTimeoutException(state: State) extends RuntimeException(s"State timeout triggered in state $state!")
-}
 
-abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordination.Backend](
+  final val Name = "constructr-machine"
+
+  def props[N: Coordination.NodeSerialization, B <: Coordination.Backend](
     selfNode: N,
     coordination: Coordination[B],
     coordinationTimeout: FiniteDuration,
-    nrOfRetries: Int,
-    retryDelay: FiniteDuration,
+    nrOfAddSelfRetries: Int,
+    retryGetNodesDelay: FiniteDuration,
     refreshInterval: FiniteDuration,
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
-    joinTimeout: FiniteDuration
-) extends FSM[ConstructrMachine.State, ConstructrMachine.Data[N, B]] with ImplicitMaterializer {
+    joinTimeout: Option[FiniteDuration] = None,
+    intoJoiningHandler: ConstructrMachine[N, B] => Unit = (machine: ConstructrMachine[N, B]) => (),
+    joiningFunction: ConstructrMachine[N, B] => StateFunction[N, B] = (machine: ConstructrMachine[N, B]) => { case machine.Event(machine.StateTimeout, _) => machine.goto(State.AddingSelf) }: StateFunction[N, B],
+    outOfJoiningHandler: ConstructrMachine[N, B] => Unit = (machine: ConstructrMachine[N, B]) => ()
+  ): Props =
+    Props(new ConstructrMachine[N, B](
+      selfNode,
+      coordination,
+      coordinationTimeout,
+      nrOfAddSelfRetries,
+      retryGetNodesDelay,
+      refreshInterval,
+      ttlFactor,
+      maxNrOfSeedNodes,
+      joinTimeout,
+      intoJoiningHandler,
+      joiningFunction,
+      outOfJoiningHandler
+    ))
+}
+
+final class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordination.Backend] private (
+  val selfNode: N,
+  coordination: Coordination[B],
+  coordinationTimeout: FiniteDuration,
+  nrOfAddSelfRetries: Int,
+  retryGetNodesDelay: FiniteDuration,
+  refreshInterval: FiniteDuration,
+  ttlFactor: Double,
+  maxNrOfSeedNodes: Int,
+  joinTimeout: Option[FiniteDuration],
+  intoJoiningHandler: ConstructrMachine[N, B] => Unit,
+  joiningFunction: ConstructrMachine[N, B] => ConstructrMachine.StateFunction[N, B],
+  outOfJoiningHandler: ConstructrMachine[N, B] => Unit
+)
+    extends FSM[ConstructrMachine.State, ConstructrMachine.Data[N, B]] {
   import ConstructrMachine._
   import context.dispatcher
 
-  private val overallCoordinationTimeout = coordinationTimeout * (1 + nrOfRetries)
+  private implicit val mat = ActorMaterializer()
+
+  private val overallCoordinationTimeout = coordinationTimeout * (1 + nrOfAddSelfRetries)
 
   require(maxNrOfSeedNodes > 0, s"max-nr-of-seed-nodes must be positive, but was $maxNrOfSeedNodes!")
   require(
@@ -64,90 +107,73 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
 
   private val addOrRefreshTtl = refreshInterval * ttlFactor
 
-  startWith(State.GettingNodes, Data(Nil, nrOfRetries, coordination.initialBackendContext, State.GettingNodes))
+  startWith(State.GettingNodes, Data(Nil, nrOfAddSelfRetries, coordination.initialBackendContext))
 
   // Getting nodes
 
   onTransition {
-    case _ -> State.GettingNodes =>
+    case State.BeforeGettingNodes -> State.GettingNodes =>
       log.debug("Transitioning to GettingNodes")
       coordination.getNodes().pipeTo(self)
   }
 
   when(State.GettingNodes, coordinationTimeout) {
-    case Event(Nil, _) =>
+    case Event(Nil, data) =>
       log.debug("Received empty nodes, going to Locking")
-      goto(State.Locking)
+      goto(State.Locking).using(data.copy(Nil))
 
-    case Event(nodes: List[N] @unchecked, _) =>
-      log.debug(s"Received nodes $nodes, going to Joining")
-      goto(State.Joining).using(stateData.copy(nodes = nodes))
-
-    case Event(Status.Failure(cause), _) =>
-      log.warning(s"Failure in GettingNodes, going to Retrying for GettingNodes: $cause")
-      retryGettingNodes()
-
-    case Event(StateTimeout, _) =>
-      log.warning("Timeout in GettingNodes, going to Retrying for GettingNodes")
-      retryGettingNodes()
+    case Event(nodes: List[N] @unchecked, data) =>
+      val seedNodes = nodes.take(maxNrOfSeedNodes)
+      log.debug(s"Received nodes $nodes, using seed nodes $seedNodes, going to Joining")
+      goto(State.Joining).using(data.copy(seedNodes))
   }
-
-  private def retryGettingNodes() =
-    goto(State.Retrying).using(stateData.copy(retryState = State.GettingNodes))
 
   // Locking
 
   onTransition {
     case _ -> State.Locking =>
       log.debug("Transitioning to Locking")
-      val ttl = (2 * overallCoordinationTimeout + joinTimeout) * ttlFactor // Keep lock until self added
+      val ttl = (2 * overallCoordinationTimeout + joinTimeout.getOrElse(Duration.Zero)) * ttlFactor // Keep lock until self added
       coordination.lock(selfNode, ttl).pipeTo(self)
   }
 
   when(State.Locking, coordinationTimeout) {
     case Event(Coordination.LockResult.Success, data) =>
       log.debug("Successfully locked, going to Joining")
-      goto(State.Joining).using(data.copy(nodes = List(selfNode)))
+      goto(State.Joining).using(data.copy(List(selfNode)))
 
-    case Event(Coordination.LockResult.Failure, _) =>
-      log.warning("Couldn't acquire lock, going to Retrying for GettingNodes")
-      retryInLocking()
-
-    case Event(Status.Failure(cause), _) =>
-      log.warning(s"Failure in Locking, going to Retrying for GettingNodes: $cause")
-      retryInLocking()
-
-    case Event(StateTimeout, _) =>
-      log.warning("Timeout in Locking, going to Retrying for GettingNodes")
-      retryInLocking()
+    case Event(Coordination.LockResult.Failure, data) =>
+      log.debug("Couldn't lock, going to BeforeGettingNodes")
+      goto(State.BeforeGettingNodes).using(data.copy(Nil))
   }
 
-  private def retryInLocking() =
-    goto(State.Retrying).using(stateData.copy(retryState = State.GettingNodes))
+  // BeforeGettingNodes
+
+  onTransition {
+    case _ -> State.BeforeGettingNodes => log.debug("Transitioning to BeforeGettingNodes")
+  }
+
+  when(State.BeforeGettingNodes, retryGetNodesDelay) {
+    case Event(StateTimeout, _) =>
+      log.debug(s"Waited for $retryGetNodesDelay, going to GettingNodes")
+      goto(State.GettingNodes)
+  }
 
   // Joining
 
   onTransition {
     case _ -> State.Joining =>
       log.debug("Transitioning to Joining")
-      intoJoiningHandler()
+      intoJoiningHandler(this)
   }
 
-  when(State.Joining, joinTimeout)(joiningFunction)
+  when(State.Joining, joinTimeout.getOrElse(Duration.Zero))(joiningFunction(this))
 
   onTransition {
     case State.Joining -> _ =>
       log.debug("Transitioning out of Joining")
-      outOfJoiningHandler()
+      outOfJoiningHandler(this)
   }
-
-  protected def intoJoiningHandler(): Unit
-
-  protected def joiningFunction: StateFunction
-
-  protected def outOfJoiningHandler(): Unit
-
-  final protected def seedNodes(nodes: List[N]): List[N] = nodes.take(maxNrOfSeedNodes)
 
   // AddingSelf
 
@@ -160,23 +186,7 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
   when(State.AddingSelf, coordinationTimeout) {
     case Event(Coordination.SelfAdded(context: B#Context @unchecked), data) =>
       log.debug("Successfully added self, going to RefreshScheduled")
-      goto(State.RefreshScheduled).using(data.copy(context = context, nrOfRetriesLeft = nrOfRetries))
-
-    case Event(Status.Failure(cause), _) =>
-      log.warning(s"Failure in AddingSelf, going to Retrying for AddingSelf: $cause")
-      retryAddingSelf()
-
-    case Event(StateTimeout, _) =>
-      log.warning("Timeout in AddingSelf, going to Retrying for AddingSelf")
-      retryAddingSelf()
-  }
-
-  private def retryAddingSelf() = {
-    val nrOfRetriesLeft = stateData.nrOfRetriesLeft
-    if (nrOfRetriesLeft > 0)
-      goto(State.Retrying).using(stateData.copy(nrOfRetriesLeft = nrOfRetriesLeft - 1, retryState = State.AddingSelf))
-    else
-      throw new IllegalStateException("Number of retries exhausted")
+      goto(State.RefreshScheduled).using(data.copy(context = context))
   }
 
   // RefreshScheduled
@@ -200,37 +210,32 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
   }
 
   when(State.Refreshing, coordinationTimeout) {
-    case Event(Coordination.Refreshed, _) =>
+    case Event(Coordination.Refreshed(_), _) =>
       log.debug("Successfully refreshed, going to RefreshScheduled")
-      goto(State.RefreshScheduled).using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
+      goto(State.RefreshScheduled)
+  }
 
+  // Handle failure
+
+  whenUnhandled {
     case Event(Status.Failure(cause), _) =>
-      log.warning(s"Failure in AddingSelf, going to Retrying for AddingSelf: $cause")
-      retryRefreshing()
+      log.error(cause, "Unexpected failure!")
+      throw cause
 
-    case Event(StateTimeout, _) =>
-      log.warning("Timeout in AddingSelf, going to Retrying for AddingSelf")
-      retryRefreshing()
-  }
+    case Event(StateTimeout, data @ Data(_, n, _)) =>
+      stateName match {
+        case State.AddingSelf if n > 0 =>
+          log.warning(s"Coordination timout in state ${State.AddingSelf}, $n retries left!")
+          goto(stateName).using(data.copy(nrOfAddSelfRetriesLeft = n - 1))
 
-  private def retryRefreshing() = {
-    val nrOfRetriesLeft = stateData.nrOfRetriesLeft
-    if (nrOfRetriesLeft > 0)
-      goto(State.Retrying).using(stateData.copy(nrOfRetriesLeft = nrOfRetriesLeft - 1, retryState = State.Refreshing))
-    else
-      throw new IllegalStateException("Number of retries exhausted")
-  }
+        case State.AddingSelf =>
+          log.error(s"Coordination timeout in state ${State.AddingSelf}, no retries left!")
+          throw ConstructrMachine.StateTimeoutException(stateName)
 
-  // Retrying
-
-  onTransition {
-    case state -> State.Retrying => log.debug(s"Transitioning from $state to Retrying")
-  }
-
-  when(State.Retrying, retryDelay) {
-    case Event(StateTimeout, Data(_, _, _, retryState)) =>
-      log.debug(s"Waited for $retryDelay, going to $retryState")
-      goto(retryState)
+        case _ =>
+          log.warning(s"Coordination timout in state $stateName, retrying!")
+          goto(stateName)
+      }
   }
 
   // Initialization

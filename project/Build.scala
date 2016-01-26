@@ -44,7 +44,7 @@ object Build extends AutoPlugin {
       unmanagedSourceDirectories.in(Test) := List(scalaSource.in(Test).value),
 
       // Scalariform settings
-      SbtScalariform.autoImport.scalariformPreferences := SbtScalariform.autoImport.scalariformPreferences.value
+      SbtScalariform.autoImport.preferences := SbtScalariform.autoImport.preferences.value
         .setPreference(AlignSingleLineCaseStatements, true)
         .setPreference(AlignSingleLineCaseStatements.MaxArrowIndent, 100)
         .setPreference(DoubleIndentClassDeclaration, true),

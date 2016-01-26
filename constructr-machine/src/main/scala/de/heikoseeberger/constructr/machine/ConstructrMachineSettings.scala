@@ -28,11 +28,11 @@ trait ConstructrMachineSettings {
     if (maxNrOfSeedNodes <= 0) Int.MaxValue else maxNrOfSeedNodes
   }
 
-  final val nrOfRetries: Int = config.getInt("nr-of-retries")
+  final val nrOfAddSelfRetries: Int = config.getInt("nr-of-add-self-retries")
 
   final val refreshInterval: FiniteDuration = getDuration("refresh-interval")
 
-  final val retryDelay: FiniteDuration = getDuration("retry-delay")
+  final val retryGetNodesDelay: FiniteDuration = getDuration("retry-get-nodes-delay")
 
   final val ttlFactor: Double = {
     val ttlFactor = config.getDouble("ttl-factor")

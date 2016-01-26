@@ -34,7 +34,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
 
   private val nodesUri = baseUri.withPath(baseUri.path / "nodes")
 
-  override def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer) = {
+  override def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[N]] = {
     def unmarshalNodes(entity: ResponseEntity) = {
       def toNodes(s: String) = {
         import rapture.json._
@@ -58,7 +58,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
     }
   }
 
-  override def lock[N](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer) = {
+  override def lock[N](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult] = {
     val lockUri = baseUri.withPath(baseUri.path / "lock").withQuery(Uri.Query("value" -> self.toString))
     def readLock() = {
       def unmarshalLockHolder(entity: ResponseEntity) = {
@@ -109,7 +109,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
   override def refresh[N: NodeSerialization](self: N, ttl: Duration, context: None.type)(implicit ec: ExecutionContext, mat: Materializer) = {
     val uri = addOrRefreshUri(self, ttl)
     send(Put(uri)).flatMap {
-      case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => Refreshed)
+      case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => Refreshed[Coordination.Backend.Etcd.type](None))
       case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
   }

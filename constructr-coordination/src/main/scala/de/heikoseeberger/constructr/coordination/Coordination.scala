@@ -58,7 +58,7 @@ object Coordination {
 
   case class SelfAdded[B <: Coordination.Backend](context: B#Context)
 
-  case object Refreshed
+  case class Refreshed[B <: Coordination.Backend](context: B#Context)
 
   case class UnexpectedStatusCode(uri: Uri, statusCode: StatusCode) extends RuntimeException(s"Unexpected status code $statusCode for URI $uri")
 
@@ -81,7 +81,7 @@ abstract class Coordination[B <: Coordination.Backend] {
 
   def addSelf[N: NodeSerialization](self: N, ttl: Duration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded[B]]
 
-  def refresh[N: NodeSerialization](self: N, ttl: Duration, context: B#Context)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed.type]
+  def refresh[N: NodeSerialization](self: N, ttl: Duration, context: B#Context)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed[B]]
 
   def initialBackendContext: B#Context
 }

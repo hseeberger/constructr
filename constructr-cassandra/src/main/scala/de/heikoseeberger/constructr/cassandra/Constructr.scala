@@ -19,16 +19,21 @@ package de.heikoseeberger.constructr.cassandra
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props, SupervisorStrategy, Terminated }
 import akka.http.scaladsl.Http
 import de.heikoseeberger.constructr.coordination.Coordination
+import de.heikoseeberger.constructr.machine.ConstructrMachine
 import java.net.InetAddress
 
 object Constructr {
 
-  final val Name = "constructr"
+  final val Name = "constructr-cassandra"
 
   case object GetNodes
   final case class Nodes(value: List[InetAddress])
 
   def props(strategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy): Props = Props(new Constructr(strategy))
+
+  private def intoJoiningHandler[B <: Coordination.Backend](constructr: ActorRef)(machine: ConstructrMachine[InetAddress, B]) = {
+    constructr ! Constructr.Nodes(machine.nextStateData.nodes)
+  }
 }
 
 final class Constructr private (override val supervisorStrategy: SupervisorStrategy)
@@ -42,7 +47,6 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
   private def waitingForNodes(requesters: Set[ActorRef]): Receive = receiveTerminated.orElse {
     case GetNodes =>
       context.become(waitingForNodes(requesters + sender()))
-
     case nodes: Nodes =>
       requesters.foreach(_ ! nodes)
       context.become(nodesReceived(nodes))
@@ -65,18 +69,19 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
       Coordination(backend)("cassandra", settings.clusterName, host, port, sendFlow)
     }
     context.actorOf(
-      CassandraConstructrMachine.props(
+      ConstructrMachine.props(
         settings.selfNode,
         coordination,
         settings.coordinationTimeout,
-        settings.nrOfRetries,
-        settings.retryDelay,
+        settings.nrOfAddSelfRetries,
+        settings.retryGetNodesDelay,
         settings.refreshInterval,
         settings.ttlFactor,
         settings.maxNrOfSeedNodes,
-        self
+        None,
+        intoJoiningHandler(self)
       ),
-      CassandraConstructrMachine.Name
+      ConstructrMachine.Name
     )
   }
 }
