@@ -18,7 +18,7 @@ package de.heikoseeberger.constructr.machine
 
 import akka.actor.{ FSM, Status }
 import akka.pattern.pipe
-import akka.stream.scaladsl.ImplicitMaterializer
+import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
 import scala.concurrent.duration.FiniteDuration
 
@@ -50,7 +50,7 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
     joinTimeout: FiniteDuration
-) extends FSM[ConstructrMachine.State, ConstructrMachine.Data[N, B]] with ImplicitMaterializer {
+) extends FSM[ConstructrMachine.State, ConstructrMachine.Data[N, B]] {
   import ConstructrMachine._
   import context.dispatcher
 
@@ -61,6 +61,8 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
     ttlFactor > 1 + overallCoordinationTimeout / refreshInterval,
     s"ttl-factor must be greater than 1 + (coordination-timeout * (1 + coordination-retries) / refresh-interval), but was $ttlFactor!"
   )
+
+  private implicit val mat = ActorMaterializer()
 
   private val addOrRefreshTtl = refreshInterval * ttlFactor
 

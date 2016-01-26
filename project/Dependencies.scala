@@ -1,20 +1,19 @@
 import sbt._
 
 object Version {
-  final val Akka             = "2.4.1"
-  final val AkkaHttp         = "2.0.2"
-  final val AkkaLog4j        = "1.0.3"
+  final val Akka             = "2.4.2-RC1"
+  final val AkkaLog4j        = "1.1.0"
   final val Cassandra        = "3.0.2"
   final val Log4j            = "2.5"
   final val RaptureJsonSpray = "1.1.0"
   final val Scala            = "2.11.7"
-  final val ScalaTest        = "2.2.5"
+  final val ScalaTest        = "2.2.6"
 }
 
 object Library {
   val akkaActor            = "com.typesafe.akka"        %% "akka-actor"              % Version.Akka
   val akkaCluster          = "com.typesafe.akka"        %% "akka-cluster"            % Version.Akka
-  val akkaHttp             = "com.typesafe.akka"        %% "akka-http-experimental"  % Version.AkkaHttp
+  val akkaHttp             = "com.typesafe.akka"        %% "akka-http-experimental"  % Version.Akka
   val akkaLog4j            = "de.heikoseeberger"        %% "akka-log4j"              % Version.AkkaLog4j
   val akkaMultiNodeTestkit = "com.typesafe.akka"        %% "akka-multi-node-testkit" % Version.Akka
   val akkaSlf4j            = "com.typesafe.akka"        %% "akka-slf4j"              % Version.Akka
