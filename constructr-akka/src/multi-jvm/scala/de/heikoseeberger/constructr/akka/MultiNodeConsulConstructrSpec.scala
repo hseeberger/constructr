@@ -39,7 +39,7 @@ object ConsulConstructrMultiNodeConfig extends MultiNodeConfig {
 
   val host = "docker-machine ip default".!!.trim
 
-  val nodes = 1.to(5).to[List].map(n => node(2550 + n))
+  val nodes = 1.to(5).to[Vector].map(n => node(2550 + n))
 
   private def node(port: Int) = {
     commonConfig(ConfigFactory.load())
@@ -134,7 +134,7 @@ abstract class MultiNodeConsulConstructrSpec[N: NodeSerialization] extends Multi
     def jsonToNode(json: Json) = {
       implicitly[NodeSerialization[N]].fromBytes(decode(json.Key.as[String].substring("constructr/akka/MultiNodeConsulConstructrSpec/nodes/".length)))
     }
-    Json.parse(s).as[List[Json]].map(jsonToNode)
+    Json.parse(s).as[Vector[Json]].map(jsonToNode)
   }
 
   override def initialParticipants = roles.size
