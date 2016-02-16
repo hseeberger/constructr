@@ -45,15 +45,15 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
           NodeSerialization.fromBytes(decode(key))
         }
         Json.parse(s).node match {
-          case json"""{ "nodes": $nodes }""" => nodes.as[List[Json]].map(jsonToNode)
-          case _                             => Nil
+          case json"""{ "nodes": $nodes }""" => nodes.as[Vector[Json]].map(jsonToNode)
+          case _                             => Vector.empty
         }
       }
       Unmarshal(entity).to[String].map(toNodes)
     }
     send(Get(nodesUri)).flatMap {
       case HttpResponse(OK, _, entity, _)       => unmarshalNodes(entity)
-      case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => Nil)
+      case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => Vector.empty)
       case HttpResponse(other, _, entity, _)    => ignore(entity).map(_ => throw UnexpectedStatusCode(nodesUri, other))
     }
   }

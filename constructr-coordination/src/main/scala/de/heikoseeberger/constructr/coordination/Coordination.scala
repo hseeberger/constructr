@@ -75,7 +75,7 @@ object Coordination {
 abstract class Coordination[B <: Coordination.Backend] {
   import Coordination._
 
-  def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[List[N]]
+  def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[Vector[N]]
 
   def lock[N](self: N, ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult]
 

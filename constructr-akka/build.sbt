@@ -1,6 +1,6 @@
 name := "constructr-akka"
 
-libraryDependencies ++= List(
+libraryDependencies ++= Vector(
   Library.akkaCluster,
   Library.akkaLog4j            % "test",
   Library.akkaMultiNodeTestkit % "test",
@@ -11,7 +11,7 @@ libraryDependencies ++= List(
 
 initialCommands := """|import de.heikoseeberger.constructr.akka._""".stripMargin
 
-unmanagedSourceDirectories.in(MultiJvm) := List(scalaSource.in(MultiJvm).value)
+unmanagedSourceDirectories.in(MultiJvm) := Vector(scalaSource.in(MultiJvm).value)
 
 test.in(Test) := { test.in(MultiJvm).value; test.in(Test).value }
 
