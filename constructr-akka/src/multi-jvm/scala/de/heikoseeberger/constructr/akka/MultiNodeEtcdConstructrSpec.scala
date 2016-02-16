@@ -37,7 +37,7 @@ object EtcdConstructrMultiNodeConfig extends MultiNodeConfig {
 
   val host = "docker-machine ip default".!!.trim
 
-  val nodes = 1.to(5).to[List].map(n => node(2550 + n))
+  val nodes = 1.to(5).to[Vector].map(n => node(2550 + n))
 
   private def node(port: Int) = {
     commonConfig(ConfigFactory.load())
