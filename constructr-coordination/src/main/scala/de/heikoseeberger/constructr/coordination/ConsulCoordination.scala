@@ -51,14 +51,14 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
           val key = json.Key.as[String].substring(init.length)
           implicitly[NodeSerialization[N]].fromBytes(decode(key))
         }
-        Json.parse(s).as[List[Json]].map(jsonToNode)
+        Json.parse(s).as[Vector[Json]].map(jsonToNode)
       }
       Unmarshal(entity).to[String].map(toNodes)
     }
     val uri = nodesUri.withQuery(Uri.Query("recurse"))
     send(Get(uri)).flatMap {
       case HttpResponse(OK, _, entity, _)       => unmarshalNodes(entity)
-      case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => Nil)
+      case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => Vector.empty)
       case HttpResponse(other, _, entity, _)    => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
   }
@@ -75,7 +75,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
             val value = json.Value.as[String]
             new String(decode(value), UTF_8)
           }
-          Json.parse(s).as[List[Json]].map(jsonToNode).head
+          Json.parse(s).as[Vector[Json]].map(jsonToNode).head
         }
         Unmarshal(entity).to[String].map(toLockHolder)
       }
@@ -143,7 +143,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
         import rapture.json._
         import rapture.json.jsonBackends.spray._
         def jsonToNode(json: Json) = json.Session.as[String]
-        Json.parse(s).as[List[Json]].map(jsonToNode).head
+        Json.parse(s).as[Vector[Json]].map(jsonToNode).head
       }
       Unmarshal(entity).to[String].map(toSession)
     }

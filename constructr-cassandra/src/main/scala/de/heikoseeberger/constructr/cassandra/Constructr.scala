@@ -26,7 +26,7 @@ object Constructr {
   final val Name = "constructr"
 
   case object GetNodes
-  final case class Nodes(value: List[InetAddress])
+  final case class Nodes(value: Vector[InetAddress])
 
   def props(strategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy): Props = Props(new Constructr(strategy))
 }

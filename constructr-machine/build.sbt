@@ -1,6 +1,6 @@
 name := "constructr-machine"
 
-libraryDependencies ++= List(
+libraryDependencies ++= Vector(
   Library.akkaActor,
   Library.akkaTestkit % "test",
   Library.scalaTest   % "test"

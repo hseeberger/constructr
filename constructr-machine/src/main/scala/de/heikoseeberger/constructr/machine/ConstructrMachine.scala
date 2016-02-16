@@ -35,7 +35,7 @@ object ConstructrMachine {
     case object RetryScheduled extends State
   }
 
-  case class Data[N, B <: Coordination.Backend](nodes: List[N], retryState: State, coordinationRetriesLeft: Int, context: B#Context)
+  case class Data[N, B <: Coordination.Backend](nodes: Vector[N], retryState: State, coordinationRetriesLeft: Int, context: B#Context)
 
   final case class StateTimeoutException(state: State) extends RuntimeException(s"State timeout triggered in state $state!")
 }
@@ -66,7 +66,7 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
 
   private implicit val mat = ActorMaterializer()
 
-  startWith(State.GettingNodes, Data(Nil, State.GettingNodes, coordinationRetries, coordination.initialBackendContext))
+  startWith(State.GettingNodes, Data(Vector.empty, State.GettingNodes, coordinationRetries, coordination.initialBackendContext))
 
   // Getting nodes
 
@@ -77,11 +77,11 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
   }
 
   when(State.GettingNodes, coordinationTimeout) {
-    case Event(Nil, _) =>
+    case Event(Vector(), _) =>
       log.debug("Received empty nodes, going to Locking")
       goto(State.Locking)
 
-    case Event(nodes: List[N] @unchecked, _) =>
+    case Event(nodes: Vector[N] @unchecked, _) =>
       log.debug(s"Received nodes $nodes, going to Joining")
       goto(State.Joining).using(stateData.copy(nodes = nodes))
 
@@ -106,7 +106,7 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
   when(State.Locking, coordinationTimeout) {
     case Event(Coordination.LockResult.Success, data) =>
       log.debug("Successfully locked, going to Joining")
-      goto(State.Joining).using(data.copy(nodes = List(selfNode)))
+      goto(State.Joining).using(data.copy(nodes = Vector(selfNode)))
 
     case Event(Coordination.LockResult.Failure, _) =>
       log.warning("Couldn't acquire lock, going to Retrying")
@@ -143,7 +143,7 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
 
   protected def outOfJoiningHandler(): Unit
 
-  final protected def seedNodes(nodes: List[N]): List[N] = nodes.take(maxNrOfSeedNodes)
+  final protected def seedNodes(nodes: Vector[N]): Vector[N] = nodes.take(maxNrOfSeedNodes)
 
   // AddingSelf
 

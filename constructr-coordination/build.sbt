@@ -1,6 +1,6 @@
 name := "constructr-coordination"
 
-libraryDependencies ++= List(
+libraryDependencies ++= Vector(
   Library.akkaHttp,
   Library.raptureJsonSpray,
   Library.akkaTestkit % "test",

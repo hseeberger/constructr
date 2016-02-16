@@ -1,8 +1,8 @@
 import sbt._
 
 object Version {
-  final val Akka             = "2.4.2-RC1"
-  final val AkkaLog4j        = "1.1.0"
+  final val Akka             = "2.4.2-RC3"
+  final val AkkaLog4j        = "1.1.1"
   final val Cassandra        = "3.0.2"
   final val Log4j            = "2.5"
   final val RaptureJsonSpray = "1.1.0"

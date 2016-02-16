@@ -1,6 +1,6 @@
 name := "constructr-cassandra"
 
-libraryDependencies ++= List(
+libraryDependencies ++= Vector(
   Library.akkaActor,
   Library.akkaSlf4j, // because cassandraAll depends on Logback and hence on SLF4J
   Library.cassandraAll % "provided",
@@ -18,7 +18,7 @@ assemblyMergeStrategy.in(assembly) := {
 }
 
 docker                := docker.dependsOn(assembly).value
-imageNames.in(docker) := List(ImageName(s"constructr/cassandra-${Version.Cassandra}:${version.in(docker).value}"))
+imageNames.in(docker) := Vector(ImageName(s"constructr/cassandra-${Version.Cassandra}:${version.in(docker).value}"))
 dockerfile.in(docker) := {
   val fatJar = assemblyOutputPath.in(assembly).value
   val fatJarTargetPath = s"/${fatJar.name}"

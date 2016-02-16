@@ -45,7 +45,7 @@ constructr-akka depends on Akka 2.4.2-RC1 and is published to Bintray and Maven 
 // final ones are also published to Maven Central.
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
-libraryDependencies ++= List(
+libraryDependencies ++= Vector(
   "de.heikoseeberger" %% "constructr-akka" % "0.9.0",
   ...
 )
@@ -89,7 +89,7 @@ constructr-cassandra depends on Cassandra 3.0.2 and is published to Bintray and 
 // final ones are also published to Maven Central.
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
-libraryDependencies ++= List(
+libraryDependencies ++= Vector(
   "de.heikoseeberger" %% "constructr-cassandra" % "0.9.0",
   ...
 )
