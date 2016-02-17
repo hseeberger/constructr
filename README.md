@@ -38,15 +38,13 @@ If something goes wrong, e.g. a timeout (after configurable retries are exhauste
 
 ## ConstructR for Akka
 
-constructr-akka depends on Akka 2.4.2-RC1 and is published to Bintray and Maven Central.
-
 ``` scala
 // All releases including intermediate ones are published here,
 // final ones are also published to Maven Central.
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Vector(
-  "de.heikoseeberger" %% "constructr-akka" % "0.9.0",
+  "de.heikoseeberger" %% "constructr-akka" % "0.9.1",
   ...
 )
 ```
@@ -82,15 +80,13 @@ constructr.akka {
 
 ## ConstructR for Cassandra
 
-constructr-cassandra depends on Cassandra 3.0.2 and is published to Bintray and Maven Central.
-
 ``` scala
 // All releases including intermediate ones are published here,
 // final ones are also published to Maven Central.
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Vector(
-  "de.heikoseeberger" %% "constructr-cassandra" % "0.9.0",
+  "de.heikoseeberger" %% "constructr-cassandra" % "0.9.1",
   ...
 )
 ```
