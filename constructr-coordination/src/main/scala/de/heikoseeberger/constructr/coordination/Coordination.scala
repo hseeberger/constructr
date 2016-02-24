@@ -33,7 +33,7 @@ object Coordination {
 
   object Backend {
     case object Etcd extends Backend {
-      override type Context = None.type
+      override type Context = Unit
     }
     case object Consul extends Backend {
       type SessionId = String

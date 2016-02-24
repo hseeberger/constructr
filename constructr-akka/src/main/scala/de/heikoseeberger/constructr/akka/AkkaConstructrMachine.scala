@@ -83,6 +83,7 @@ final class AkkaConstructrMachine[B <: Coordination.Backend](
     case Event(MemberJoined(member), _)                               => stay()
     case Event(MemberUp(member), _) if member.address == selfNode     => goto(State.AddingSelf)
     case Event(MemberUp(member), _)                                   => stay()
+    case Event(StateTimeout, _)                                       => throw new IllegalStateException("Timeout in Joining!")
   }
 
   override protected def outOfJoiningHandler() = Cluster(context.system).unsubscribe(self)

@@ -116,7 +116,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
       sessionId <- createSession(ttl)
       result <- putKeyWithSession(keyUri, sessionId) if result
     } yield sessionId // it will fail if it couldn't acquire the key with the new session
-    (addSelfWithPreviousSession fallbackTo addSelftWithNewSession).map(SelfAdded[Coordination.Backend.Consul.type])
+    addSelfWithPreviousSession.fallbackTo(addSelftWithNewSession).map(SelfAdded[Coordination.Backend.Consul.type])
   }
 
   override def refresh[N: NodeSerialization](self: N, ttl: FiniteDuration, sessionId: String)(implicit ec: ExecutionContext, mat: Materializer) = {
