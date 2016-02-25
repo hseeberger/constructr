@@ -59,7 +59,7 @@ final class CassandraConstructrMachine[B <: Coordination.Backend](
   ttlFactor: Double,
   maxNrOfSeedNodes: Int,
   constructr: ActorRef
-) extends ConstructrMachine[InetAddress, B](
+) extends ConstructrMachine(
   selfNode,
   coordination,
   coordinationTimeout,

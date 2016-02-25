@@ -60,7 +60,7 @@ final class AkkaConstructrMachine[B <: Coordination.Backend](
   ttlFactor: Double,
   maxNrOfSeedNodes: Int,
   joinTimeout: FiniteDuration
-) extends ConstructrMachine[Address, B](
+) extends ConstructrMachine(
   selfNode,
   coordination,
   coordinationTimeout,
