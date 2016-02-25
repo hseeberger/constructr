@@ -62,19 +62,19 @@ The following listing shows the available configuration settings with their defa
 ```
 constructr.akka {
   coordination {
-    backend = "etcd"      // Or "consul"
-    host    = "localhost"
+    backend = etcd      // Or consul
+    host    = localhost
     port    = 2379
   }
 
-  coordination-retries = 2          // Nr. of tries are nr. of retries + 1
   coordination-timeout = 3 seconds  // Maximum response time for coordination service (e.g. etcd)
   max-nr-of-seed-nodes = 0          // Any nonpositive value means Int.MaxValue
+  nr-of-retries        = 2          // Nr. of tries are nr. of retries + 1
   refresh-interval     = 30 seconds // TTL is refresh-interval * ttl-factor
-  retry-delay          = 3 seconds  // If lock couldn't be acquired, give other node some time to add self
-  ttl-factor           = 1.5        // Must be greater than 1 + (coordination-timeout * (1 + coordination-retries) / refresh-interval)!
+  retry-delay          = 3 seconds  // Give coordination service (e.g. etcd) some delay before retrying
+  ttl-factor           = 2.0        // Must be greater or equal 1 + ((coordination-timeout * (1 + nr-of-retries) + retry-delay * nr-of-retries)/ refresh-interval)!
 
-  join-timeout          = 10 seconds // Might depend on cluster size and network properties
+  join-timeout = 15 seconds // Might depend on cluster size and network properties
 }
 ```
 
@@ -105,23 +105,23 @@ The following listing shows the available configuration settings with their defa
 ```
 constructr.cassandra {
   coordination {
-    backend = "etcd"                          // Or "consul"
-    host    = "localhost"
+    backend = etcd                            // Or consul
+    host    = localhost
     host    = ${?CASSANDRA_BROADCAST_ADDRESS} // Works for Docker image
     port    = 2379
   }
 
-  coordination-retries = 2          // Nr. of tries are nr. of retries + 1
   coordination-timeout = 3 seconds  // Maximum response time for coordination service (e.g. etcd)
   max-nr-of-seed-nodes = 0          // Any nonpositive value means Int.MaxValue
+  nr-of-retries        = 2          // Nr. of tries are nr. of retries + 1
   refresh-interval     = 30 seconds // TTL is refresh-interval * ttl-factor
-  retry-delay          = 3 seconds  // If lock couldn't be acquired, give other node some time to add self
-  ttl-factor           = 1.5        // Must be greater than 1 + (coordination-timeout * (1 + coordination-retries) / refresh-interval)!
+  retry-delay          = 3 seconds  // Give coordination service (e.g. etcd) some delay before retrying
+  ttl-factor           = 2.0        // Must be greater or equal 1 + ((coordination-timeout * (1 + nr-of-retries) + retry-delay * nr-of-retries)/ refresh-interval)!
 
-  cluster-name          = "default"                       // Must match cluster_name in cassandra.yaml!
+  cluster-name          = default                         // Must match cluster_name in cassandra.yaml!
   cluster-name          = ${?CASSANDRA_CLUSTER_NAME}      // Works for Docker image
   seed-provider-timeout = 20 seconds                      // Should be longer than coordination-timeout
-  self-address          = "auto"                          // "auto" means `InetAddress.getLocalHost`
+  self-address          = auto                            // "auto" means `InetAddress.getLocalHost`
   self-address          = ${?CASSANDRA_BROADCAST_ADDRESS} // Works for Docker image
 }
 ```
