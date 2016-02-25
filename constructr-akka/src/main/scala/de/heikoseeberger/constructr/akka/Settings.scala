@@ -19,7 +19,7 @@ package de.heikoseeberger.constructr.akka
 import akka.actor.{ Actor, ExtendedActorSystem, Extension, ExtensionKey }
 import de.heikoseeberger.constructr.coordination.Coordination
 import de.heikoseeberger.constructr.machine.ConstructrMachineSettings
-import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS }
+import scala.concurrent.duration.FiniteDuration
 
 object Settings extends ExtensionKey[Settings]
 
