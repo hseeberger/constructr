@@ -101,12 +101,12 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
   override def addSelf[N: NodeSerialization](self: N, ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer) = {
     val uri = addOrRefreshUri(self, ttl)
     send(Put(uri)).flatMap {
-      case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => SelfAdded[Coordination.Backend.Etcd.type](None))
+      case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => SelfAdded[Coordination.Backend.Etcd.type](()))
       case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
   }
 
-  override def refresh[N: NodeSerialization](self: N, ttl: FiniteDuration, context: None.type)(implicit ec: ExecutionContext, mat: Materializer) = {
+  override def refresh[N: NodeSerialization](self: N, ttl: FiniteDuration, context: Unit)(implicit ec: ExecutionContext, mat: Materializer) = {
     val uri = addOrRefreshUri(self, ttl)
     send(Put(uri)).flatMap {
       case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => Refreshed)
@@ -114,7 +114,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, host: String, 
     }
   }
 
-  override def initialBackendContext = None
+  override def initialBackendContext = ()
 
   private def addOrRefreshUri[N: NodeSerialization](self: N, ttl: FiniteDuration) = nodesUri
     .withPath(nodesUri.path / encode(NodeSerialization.toBytes(self)))

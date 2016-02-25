@@ -64,7 +64,7 @@ final class Constructr private (override val supervisorStrategy: SupervisorStrat
         Cluster(context.system).selfAddress,
         coordination,
         settings.coordinationTimeout,
-        settings.coordinationRetries,
+        settings.nrOfRetries,
         settings.retryDelay,
         settings.refreshInterval,
         settings.ttlFactor,

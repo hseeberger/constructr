@@ -21,14 +21,14 @@ import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS }
 
 trait ConstructrMachineSettings {
 
-  final val coordinationRetries: Int = config.getInt("coordination-retries")
-
   final val coordinationTimeout: FiniteDuration = getDuration("coordination-timeout")
 
   final val maxNrOfSeedNodes: Int = {
     val maxNrOfSeedNodes = config.getInt("max-nr-of-seed-nodes")
     if (maxNrOfSeedNodes <= 0) Int.MaxValue else maxNrOfSeedNodes
   }
+
+  final val nrOfRetries: Int = config.getInt("nr-of-retries")
 
   final val refreshInterval: FiniteDuration = getDuration("refresh-interval")
 
