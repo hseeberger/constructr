@@ -2,9 +2,9 @@
 
 [![Join the chat at https://gitter.im/hseeberger/constructr](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/hseeberger/constructr?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-ConstructR aims at cluster bootstrapping (construction) by using a coordination service. Currently it provides libraries for bootstrapping [Akka](http://akka.io) and [Cassandra](https://cassandra.apache.org) clusters via [etcd](https://github.com/coreos/etcd) and [Consul](https://www.consul.io).
+ConstructR aims at cluster bootstrapping (construction) by using a coordination service. Currently it provides libraries for bootstrapping [Akka](http://akka.io) and [Cassandra](https://cassandra.apache.org) clusters via [etcd](https://github.com/coreos/etcd) or [Consul](https://www.consul.io).
 
-Disambiguation: ConstructR is not related to [Typesafe ConductR](http://www.typesafe.com/products/conductr), which is a feature-rich and reactive application manager providing deployments, service lookups, health checks and much more.
+Disambiguation: Despite the similar name, ConstructR is not related to [Lightbend ConductR](http://www.lightbend.com/products/conductr).
 
 ConstructR utilizes a key-value coordination service like etcd to automate bootstrapping or joining a cluster. It stores each member node under the key `/constructr/$prefix/$clusterName/nodes/$address` where `$prefix` represents the system to be clustered, e.g. "akka", `$clusterName` is for disambiguating multiple clusters and `$address` is a Base64 encoded address, e.g. `Address` for Akka. These keys expire after a configurable time in order to avoid stale information. Therefore ConstructR refreshes each key periodically.
 
@@ -52,7 +52,7 @@ libraryDependencies ++= Vector(
 Simply add the `ConstructrExtension` to the `extensions` configuration setting:
 
 ```
-akka.extensions = ["de.heikoseeberger.constructr.akka.ConstructrExtension"]
+akka.extensions = [de.heikoseeberger.constructr.akka.ConstructrExtension]
 ```
 
 This will start the `Constructr` actor as a system actor. Alternatively start it yourself as early as possible if you feel so inclined.
@@ -129,7 +129,7 @@ constructr.cassandra {
 ## Testing
 
 Requirements:
-  - Etcd needs to be running, e.g. via `docker run -d -p 9999:2379 quay.io/coreos/etcd:v2.2.5 -advertise-client-urls http://192.168.99.100:9999 -listen-client-urls http://0.0.0.0:2379`
+  - etcd needs to be running, e.g. via `docker run -d -p 9999:2379 quay.io/coreos/etcd:v2.2.5 -advertise-client-urls http://192.168.99.100:9999 -listen-client-urls http://0.0.0.0:2379`
   - Consul needs to be running, e.g. via `docker run -d -p 9998:8500 --name constructr-consul progrium/consul -server -bootstrap` 
 
 ## Contribution policy ##
