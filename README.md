@@ -129,9 +129,8 @@ constructr.cassandra {
 ## Testing
 
 Requirements:
-  - `docker` and `docker-machine` have to be installed, e.g. via the [Docker Toolbox](https://www.docker.com/docker-toolbox)
-  - A Docker machine named "default" has to be stated, e.g. via `docker-machine start default`
-  - The Docker environment has to be set up, e.g. via `eval "$(docker-machine env default)"`
+  - Etcd needs to be running, e.g. via `docker run -d -p 9999:2379 quay.io/coreos/etcd:v2.2.5 -advertise-client-urls http://192.168.99.100:9999 -listen-client-urls http://0.0.0.0:2379`
+  - Consul needs to be running, e.g. via `docker run -d -p 9998:8500 --name constructr-consul progrium/consul -server -bootstrap` 
 
 ## Contribution policy ##
 
