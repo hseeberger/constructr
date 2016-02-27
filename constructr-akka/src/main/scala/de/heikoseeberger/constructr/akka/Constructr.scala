@@ -20,6 +20,7 @@ import akka.actor.{ SupervisorStrategy, Actor, ActorLogging, ActorRef, Props, Te
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberExited, MemberLeft, MemberRemoved }
 import akka.http.scaladsl.Http
+import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
 
 object Constructr {
@@ -58,7 +59,7 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
     val coordination = {
       import settings.coordination._
       val sendFlow = Http()(context.system).outgoingConnection(host, port)
-      Coordination(backend)("akka", context.system.name, host, port, sendFlow)
+      Coordination(backend)("akka", context.system.name, host, port, sendFlow, context.dispatcher, ActorMaterializer())
     }
     context.actorOf(
       AkkaConstructrMachine.props(

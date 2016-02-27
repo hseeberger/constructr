@@ -19,9 +19,9 @@ package de.heikoseeberger.constructr.coordination
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, StatusCode, Uri }
 import akka.stream.Materializer
-import akka.stream.scaladsl.{ Sink, Source, Flow }
-import scala.concurrent.duration.FiniteDuration
+import akka.stream.scaladsl.{ Flow, Sink, Source }
 import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.duration.FiniteDuration
 
 object Coordination {
 
@@ -62,26 +62,34 @@ object Coordination {
 
   case class UnexpectedStatusCode(uri: Uri, statusCode: StatusCode) extends RuntimeException(s"Unexpected status code $statusCode for URI $uri")
 
-  def apply[B <: Coordination.Backend](backend: Backend)(prefix: String, clusterName: String, host: String, port: Int, sendFlow: SendFlow): Coordination[B] =
+  def apply[B <: Coordination.Backend](backend: Backend)(
+    prefix: String,
+    clusterName: String,
+    host: String,
+    port: Int,
+    sendFlow: SendFlow,
+    ec: ExecutionContext,
+    mat: Materializer
+  ): Coordination[B] =
     backend match {
-      case Backend.Etcd   => new EtcdCoordination(prefix, clusterName, host, port)(sendFlow).asInstanceOf[Coordination[B]]
-      case Backend.Consul => new ConsulCoordination(prefix, clusterName, host, port)(sendFlow).asInstanceOf[Coordination[B]]
+      case Backend.Etcd   => new EtcdCoordination(prefix, clusterName, host, port)(sendFlow, ec, mat).asInstanceOf[Coordination[B]]
+      case Backend.Consul => new ConsulCoordination(prefix, clusterName, host, port)(sendFlow, ec, mat).asInstanceOf[Coordination[B]]
     }
 
-  def send(request: HttpRequest)(implicit sendFlow: SendFlow, mat: Materializer): Future[HttpResponse] =
+  def send(request: HttpRequest)(implicit sendFlow: Coordination.SendFlow, mat: Materializer): Future[HttpResponse] =
     Source.single(request).via(sendFlow).runWith(Sink.head)
 }
 
 abstract class Coordination[B <: Coordination.Backend] {
   import Coordination._
 
-  def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer): Future[Vector[N]]
+  def getNodes[N: NodeSerialization](): Future[Vector[N]]
 
-  def lock[N](self: N, ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer): Future[LockResult]
+  def lock[N](self: N, ttl: FiniteDuration): Future[LockResult]
 
-  def addSelf[N: NodeSerialization](self: N, ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer): Future[SelfAdded[B]]
+  def addSelf[N: NodeSerialization](self: N, ttl: FiniteDuration): Future[SelfAdded[B]]
 
-  def refresh[N: NodeSerialization](self: N, ttl: FiniteDuration, context: B#Context)(implicit ec: ExecutionContext, mat: Materializer): Future[Refreshed.type]
+  def refresh[N: NodeSerialization](self: N, ttl: FiniteDuration, context: B#Context): Future[Refreshed.type]
 
   def initialBackendContext: B#Context
 }

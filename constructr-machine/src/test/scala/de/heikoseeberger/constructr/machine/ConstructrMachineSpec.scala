@@ -16,17 +16,16 @@
 
 package de.heikoseeberger.constructr.machine
 
-import akka.actor.ActorDSL.{ Act, actor }
-import akka.actor.{ ActorSystem, FSM, Props, SupervisorStrategy }
+import akka.actor.{ ActorSystem, FSM, Props }
 import akka.pattern.{ after => akkaAfter }
-import akka.stream.{ ActorMaterializer, Materializer }
+import akka.stream.ActorMaterializer
 import akka.testkit.{ TestDuration, TestProbe }
 import de.heikoseeberger.constructr.coordination.Coordination
 import java.nio.charset.StandardCharsets
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scala.concurrent.duration.{ Duration, DurationInt, FiniteDuration }
-import scala.concurrent.{ Await, ExecutionContext, Future }
+import scala.concurrent.{ Await, Future }
 
 final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockFactory {
   import ConstructrMachine._
@@ -48,11 +47,11 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
       inSequence {
         (coordination.initialBackendContext _).expects().returns(())
 
-        (coordination.getNodes()(_: Coordination.NodeSerialization[String], _: ExecutionContext, _: Materializer))
-          .expects(*, *, *)
+        (coordination.getNodes()(_: Coordination.NodeSerialization[String]))
+          .expects(*)
           .returns(akkaAfter(1.hour.dilated, system.scheduler)(Future(Vector.empty)))
-        (coordination.getNodes()(_: Coordination.NodeSerialization[String], _: ExecutionContext, _: Materializer))
-          .expects(*, *, *)
+        (coordination.getNodes()(_: Coordination.NodeSerialization[String]))
+          .expects(*)
           .returns(Future.failed(new Exception("BOOM")))
       }
 
@@ -94,52 +93,52 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
       inSequence {
         (coordination.initialBackendContext _).expects().returns(())
 
-        (coordination.getNodes()(_: Coordination.NodeSerialization[String], _: ExecutionContext, _: Materializer))
-          .expects(*, *, *)
+        (coordination.getNodes()(_: Coordination.NodeSerialization[String]))
+          .expects(*)
           .returns(akkaAfter(1.hour.dilated, system.scheduler)(Future.failed(new Exception("BOOM"))))
-        (coordination.getNodes()(_: Coordination.NodeSerialization[String], _: ExecutionContext, _: Materializer))
-          .expects(*, *, *)
+        (coordination.getNodes()(_: Coordination.NodeSerialization[String]))
+          .expects(*)
           .returns(Future.failed(new Exception("BOOM")))
-        (coordination.getNodes()(_: Coordination.NodeSerialization[String], _: ExecutionContext, _: Materializer))
-          .expects(*, *, *)
+        (coordination.getNodes()(_: Coordination.NodeSerialization[String]))
+          .expects(*)
           .returns(Future.successful(Vector.empty))
 
-        (coordination.lock(_: String, _: FiniteDuration)(_: ExecutionContext, _: Materializer))
-          .expects("self", 1650.millis.dilated, *, *)
+        (coordination.lock(_: String, _: FiniteDuration))
+          .expects("self", 1650.millis.dilated)
           .returns(akkaAfter(1.hour.dilated, system.scheduler)(Future.failed(new Exception("BOOM"))))
-        (coordination.lock(_: String, _: FiniteDuration)(_: ExecutionContext, _: Materializer))
-          .expects("self", 1650.millis.dilated, *, *)
+        (coordination.lock(_: String, _: FiniteDuration))
+          .expects("self", 1650.millis.dilated)
           .returns(Future.failed(new Exception("BOOM")))
-        (coordination.lock(_: String, _: FiniteDuration)(_: ExecutionContext, _: Materializer))
-          .expects("self", 1650.millis.dilated, *, *)
+        (coordination.lock(_: String, _: FiniteDuration))
+          .expects("self", 1650.millis.dilated)
           .returns(Future.successful(Coordination.LockResult.Failure))
 
-        (coordination.getNodes()(_: Coordination.NodeSerialization[String], _: ExecutionContext, _: Materializer))
-          .expects(*, *, *)
+        (coordination.getNodes()(_: Coordination.NodeSerialization[String]))
+          .expects(*)
           .returns(Future.successful(Vector.empty))
 
-        (coordination.lock(_: String, _: FiniteDuration)(_: ExecutionContext, _: Materializer))
-          .expects("self", 1650.millis.dilated, *, *)
+        (coordination.lock(_: String, _: FiniteDuration))
+          .expects("self", 1650.millis.dilated)
           .returns(Future.successful(Coordination.LockResult.Success))
 
-        (coordination.addSelf(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String], _: ExecutionContext, _: Materializer))
-          .expects("self", 1500.millis, *, *, *)
+        (coordination.addSelf(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+          .expects("self", 1500.millis, *)
           .returns(akkaAfter(1.hour.dilated, system.scheduler)(Future.failed(new Exception("BOOM"))))
-        (coordination.addSelf(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String], _: ExecutionContext, _: Materializer))
-          .expects("self", 1500.millis, *, *, *)
+        (coordination.addSelf(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+          .expects("self", 1500.millis, *)
           .returns(Future.failed(new Exception("BOOM")))
-        (coordination.addSelf(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String], _: ExecutionContext, _: Materializer))
-          .expects("self", 1500.millis, *, *, *)
+        (coordination.addSelf(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+          .expects("self", 1500.millis, *)
           .returns(Future.successful(Coordination.SelfAdded[Coordination.Backend.Etcd.type](())))
 
-        (coordination.refresh(_: String, _: FiniteDuration, _: Unit)(_: Coordination.NodeSerialization[String], _: ExecutionContext, _: Materializer))
-          .expects("self", 1500.millis, (), *, *, *)
+        (coordination.refresh(_: String, _: FiniteDuration, _: Unit)(_: Coordination.NodeSerialization[String]))
+          .expects("self", 1500.millis, (), *)
           .returns(akkaAfter(1.hour.dilated, system.scheduler)(Future.failed(new Exception("BOOM"))))
-        (coordination.refresh(_: String, _: FiniteDuration, _: Unit)(_: Coordination.NodeSerialization[String], _: ExecutionContext, _: Materializer))
-          .expects("self", 1500.millis, (), *, *, *)
+        (coordination.refresh(_: String, _: FiniteDuration, _: Unit)(_: Coordination.NodeSerialization[String]))
+          .expects("self", 1500.millis, (), *)
           .returns(Future.failed(new Exception("BOOM")))
-        (coordination.refresh(_: String, _: FiniteDuration, _: Unit)(_: Coordination.NodeSerialization[String], _: ExecutionContext, _: Materializer))
-          .expects("self", 1500.millis, (), *, *, *)
+        (coordination.refresh(_: String, _: FiniteDuration, _: Unit)(_: Coordination.NodeSerialization[String]))
+          .expects("self", 1500.millis, (), *)
           .anyNumberOfTimes
           .returns(Future.successful(Coordination.Refreshed))
       }

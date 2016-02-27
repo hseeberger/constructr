@@ -18,6 +18,7 @@ package de.heikoseeberger.constructr.cassandra
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props, SupervisorStrategy, Terminated }
 import akka.http.scaladsl.Http
+import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
 import java.net.InetAddress
 
@@ -63,7 +64,7 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
     val coordination = {
       import settings.coordination._
       val sendFlow = Http()(context.system).outgoingConnection(host, port)
-      Coordination(backend)("cassandra", settings.clusterName, host, port, sendFlow)
+      Coordination(backend)("cassandra", settings.clusterName, host, port, sendFlow, context.dispatcher, ActorMaterializer())
     }
     context.actorOf(
       CassandraConstructrMachine.props(
