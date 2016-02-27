@@ -17,16 +17,24 @@
 package de.heikoseeberger.constructr.coordination
 
 import akka.http.scaladsl.client.RequestBuilding.{ Get, Put }
-import akka.http.scaladsl.model.StatusCodes.{ NotFound, OK }
-import akka.http.scaladsl.model.{ HttpEntity, HttpResponse, ResponseEntity, RequestEntity, Uri }
 import akka.http.scaladsl.model.MediaTypes.`application/json`
+import akka.http.scaladsl.model.StatusCodes.{ NotFound, OK }
+import akka.http.scaladsl.model.{ HttpEntity, HttpResponse, RequestEntity, ResponseEntity, Uri }
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ ExecutionContext, Future }
 import java.nio.charset.StandardCharsets.UTF_8
+import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.duration.FiniteDuration
 
-final class ConsulCoordination(prefix: String, clusterName: String, host: String, port: Int)(implicit sendFlow: Coordination.SendFlow)
+final class ConsulCoordination(
+  prefix: String,
+  clusterName: String,
+  host: String,
+  port: Int
+)(implicit
+  sendFlow: Coordination.SendFlow,
+  ec: ExecutionContext,
+  mat: Materializer)
     extends Coordination[Coordination.Backend.Consul.type] {
   import Coordination._
   import Backend.Consul.SessionId
@@ -41,7 +49,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
 
   private val nodesUri = baseUri.withPath(baseUri.path / "nodes")
 
-  override def getNodes[N: NodeSerialization]()(implicit ec: ExecutionContext, mat: Materializer) = {
+  override def getNodes[N: NodeSerialization]() = {
     def unmarshalNodes(entity: ResponseEntity) = {
       def toNodes(s: String) = {
         import rapture.json._
@@ -63,9 +71,8 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  override def lock[N](self: N, ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer) = {
+  override def lock[N](self: N, ttl: FiniteDuration) = {
     val uriLock = baseUri.withPath(baseUri.path / "lock")
-    val body = HttpEntity(`application/json`, self.toString)
     def readLock() = {
       def unmarshallLockHolder(entity: ResponseEntity) = {
         def toLockHolder(s: String) = {
@@ -88,7 +95,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     def writeLock() = {
       val lockWithNewSession = for {
         sessionId <- createSession(ttl)
-        result <- putKeyWithSession(uriLock, sessionId, body)
+        result <- putKeyWithSession(uriLock, sessionId, HttpEntity(self.toString))
       } yield result
       lockWithNewSession.map(isLocked => if (isLocked) LockResult.Success else LockResult.Failure)
     }
@@ -106,7 +113,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  override def addSelf[N: NodeSerialization](self: N, ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer) = {
+  override def addSelf[N: NodeSerialization](self: N, ttl: FiniteDuration) = {
     val keyUri = nodesUri.withPath(nodesUri.path / encode(implicitly[NodeSerialization[N]].toBytes(self)))
     val addSelfWithPreviousSession = for {
       Some(sessionId) <- retrieveSessionForKey(keyUri)
@@ -119,7 +126,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     addSelfWithPreviousSession.fallbackTo(addSelftWithNewSession).map(SelfAdded[Coordination.Backend.Consul.type])
   }
 
-  override def refresh[N: NodeSerialization](self: N, ttl: FiniteDuration, sessionId: String)(implicit ec: ExecutionContext, mat: Materializer) = {
+  override def refresh[N: NodeSerialization](self: N, ttl: FiniteDuration, sessionId: String) = {
     val uri = sessionUri.withPath(sessionUri.path / "renew" / sessionId)
     send(Put(uri)).flatMap {
       case HttpResponse(OK, _, entity, _)    => ignore(entity).map(_ => Refreshed)
@@ -129,7 +136,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
 
   override def initialBackendContext = ""
 
-  private def putKeyWithSession(keyUri: Uri, sessionId: SessionId, content: RequestEntity = HttpEntity.Empty)(implicit ec: ExecutionContext, mat: Materializer): Future[Boolean] = {
+  private def putKeyWithSession(keyUri: Uri, sessionId: SessionId, content: RequestEntity = HttpEntity.Empty) = {
     val uri = keyUri.withQuery(Uri.Query("acquire" -> sessionId))
     send(Put(uri, content)).flatMap {
       case HttpResponse(OK, _, entity, _)    => Unmarshal(entity).to[String].map(_.toBoolean)
@@ -137,7 +144,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  private def retrieveSessionForKey(keyUri: Uri)(implicit ec: ExecutionContext, mat: Materializer): Future[Option[SessionId]] = {
+  private def retrieveSessionForKey(keyUri: Uri) = {
     def unmarshalSessionKey(entity: ResponseEntity) = {
       def toSession(s: String) = {
         import rapture.json._
@@ -154,7 +161,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  private def renewSession(sessionId: SessionId)(implicit ec: ExecutionContext, mat: Materializer): Future[Boolean] = {
+  private def renewSession(sessionId: SessionId) = {
     val uri = sessionUri.withPath(sessionUri.path / "renew" / sessionId)
     send(Put(uri)).flatMap {
       case HttpResponse(OK, _, entity, _)       => ignore(entity).map(_ => true)
@@ -163,7 +170,7 @@ final class ConsulCoordination(prefix: String, clusterName: String, host: String
     }
   }
 
-  private def createSession(ttl: FiniteDuration)(implicit ec: ExecutionContext, mat: Materializer): Future[SessionId] = {
+  private def createSession(ttl: FiniteDuration) = {
     def unmarshalSessionId(entity: ResponseEntity) = {
       def toSession(s: String) = {
         import rapture.json._
