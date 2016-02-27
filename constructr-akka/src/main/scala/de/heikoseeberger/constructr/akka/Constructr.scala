@@ -16,7 +16,7 @@
 
 package de.heikoseeberger.constructr.akka
 
-import akka.actor.{ Actor, ActorLogging, ActorRef, Props, SupervisorStrategy, Terminated }
+import akka.actor.{ SupervisorStrategy, Actor, ActorLogging, ActorRef, Props, Terminated }
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberExited, MemberLeft, MemberRemoved }
 import akka.http.scaladsl.Http
@@ -26,11 +26,12 @@ object Constructr {
 
   final val Name = "constructr"
 
-  def props(strategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy): Props = Props(new Constructr(strategy))
+  def props: Props = Props(new Constructr)
 }
 
-final class Constructr private (override val supervisorStrategy: SupervisorStrategy)
-    extends Actor with ActorLogging with ActorSettings {
+final class Constructr private extends Actor with ActorLogging with ActorSettings {
+
+  override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
 
   if (Cluster(context.system).settings.SeedNodes.isEmpty) {
     log.info("Creating constructr-machine, because no seed-nodes defined")

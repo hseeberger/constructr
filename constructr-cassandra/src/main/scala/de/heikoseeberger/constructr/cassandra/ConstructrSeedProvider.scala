@@ -27,7 +27,7 @@ class ConstructrSeedProvider(params: JMap[String, String]) extends SeedProvider 
 
   private val system = ActorSystem("constructr-cassandra-system")
 
-  private val constructr = system.actorOf(Constructr.props(), Constructr.Name)
+  private val constructr = system.actorOf(Constructr.props, Constructr.Name)
 
   override def getSeeds() = {
     import system.dispatcher
