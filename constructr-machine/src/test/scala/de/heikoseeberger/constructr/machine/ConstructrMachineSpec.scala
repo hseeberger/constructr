@@ -56,30 +56,24 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
           .returns(Future.failed(new Exception("BOOM")))
       }
 
-      actor(new Act {
-        override val supervisorStrategy = OneForOneStrategy() {
-          case cause =>
-            monitor.ref ! cause
-            SupervisorStrategy.Stop
-        }
-        val machine = context.actorOf(Props(new ConstructrMachine[String, Coordination.Backend.Etcd.type](
-          selfNode = "self",
-          coordination = coordination,
-          coordinationTimeout = 100.millis.dilated,
-          nrOfRetries = 1,
-          retryDelay = 100.millis.dilated,
-          refreshInterval = 1.second.dilated,
-          ttlFactor = 1.5,
-          maxNrOfSeedNodes = 3,
-          joinTimeout = 100.millis.dilated
-        ) {
-          import ConstructrMachine._
-          override protected def intoJoiningHandler() = ()
-          override protected def joiningFunction = { case Event(StateTimeout, _) => goto(State.AddingSelf) }
-          override protected def outOfJoiningHandler() = ()
-        }))
-        machine ! FSM.SubscribeTransitionCallBack(monitor.ref)
-      })
+      val machine = system.actorOf(Props(new ConstructrMachine[String, Coordination.Backend.Etcd.type](
+        selfNode = "self",
+        coordination = coordination,
+        coordinationTimeout = 100.millis.dilated,
+        nrOfRetries = 1,
+        retryDelay = 100.millis.dilated,
+        refreshInterval = 1.second.dilated,
+        ttlFactor = 1.5,
+        maxNrOfSeedNodes = 3,
+        joinTimeout = 100.millis.dilated
+      ) {
+        import ConstructrMachine._
+        override protected def intoJoiningHandler() = ()
+        override protected def joiningFunction = { case Event(StateTimeout, _) => goto(State.AddingSelf) }
+        override protected def outOfJoiningHandler() = ()
+      }))
+      machine ! FSM.SubscribeTransitionCallBack(monitor.ref)
+      monitor.watch(machine)
 
       monitor.expectMsgPF(hint = "Current state GettingNodes") {
         case FSM.CurrentState(_, State.GettingNodes) => ()
@@ -91,9 +85,7 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
       monitor.expectMsgPF(hint = "RetryScheduled -> GettingNodes") {
         case FSM.Transition(_, State.RetryScheduled, State.GettingNodes) => ()
       }
-      monitor.expectMsgPF(hint = "IllegalStateException") {
-        case _: IllegalStateException => ()
-      }
+      monitor.expectTerminated(machine)
     }
 
     "correctly work down the happy path (including retries)" in {

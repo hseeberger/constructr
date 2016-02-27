@@ -28,12 +28,13 @@ object Constructr {
   case object GetNodes
   final case class Nodes(value: Vector[InetAddress])
 
-  def props(strategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy): Props = Props(new Constructr(strategy))
+  def props: Props = Props(new Constructr)
 }
 
-final class Constructr private (override val supervisorStrategy: SupervisorStrategy)
-    extends Actor with ActorLogging with ActorSettings {
+final class Constructr private extends Actor with ActorLogging with ActorSettings {
   import Constructr._
+
+  override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
 
   private val machine = context.watch(createConstructrMachine())
 

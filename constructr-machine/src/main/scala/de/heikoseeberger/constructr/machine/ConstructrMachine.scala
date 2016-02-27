@@ -217,7 +217,7 @@ abstract class ConstructrMachine[N: Coordination.NodeSerialization, B <: Coordin
 
   private def retry(retryState: ConstructrMachine.State) =
     if (stateData.nrOfRetriesLeft <= 0)
-      throw new IllegalStateException(s"Number of retries exhausted in $stateName!")
+      stop(FSM.Failure(s"Number of retries exhausted in $stateName!"))
     else
       goto(State.RetryScheduled).using(stateData.copy(retryState = retryState, nrOfRetriesLeft = stateData.nrOfRetriesLeft - 1))
 
