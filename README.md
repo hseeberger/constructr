@@ -44,7 +44,7 @@ If something goes wrong, e.g. a timeout (after configurable retries are exhauste
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Vector(
-  "de.heikoseeberger" %% "constructr-akka" % "0.10.0",
+  "de.heikoseeberger" %% "constructr-akka" % "0.11.0",
   ...
 )
 ```
@@ -86,7 +86,7 @@ constructr.akka {
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Vector(
-  "de.heikoseeberger" %% "constructr-cassandra" % "0.10.0",
+  "de.heikoseeberger" %% "constructr-cassandra" % "0.11.0",
   ...
 )
 ```
@@ -98,7 +98,7 @@ seed_provider:
     - class_name: de.heikoseeberger.constructr.cassandra.ConstructrSeedProvider
 ```
 
-If you want to run Cassandra in Docker, ConstructR provides the [constructr/cassandra-3.0.2](https://hub.docker.com/r/constructr/cassandra-3.0.2) Docker image with the necessary configuration.
+If you want to run Cassandra in Docker, ConstructR provides the [constructr/cassandra-3.3](https://hub.docker.com/r/constructr/cassandra-3.3) Docker image with the necessary configuration.
 
 The following listing shows the available configuration settings with their defaults:
 
@@ -130,7 +130,7 @@ constructr.cassandra {
 
 Requirements:
   - etcd needs to be running, e.g. via `docker run -d -p 9999:2379 quay.io/coreos/etcd:v2.2.5 -advertise-client-urls http://192.168.99.100:9999 -listen-client-urls http://0.0.0.0:2379`
-  - Consul needs to be running, e.g. via `docker run -d -p 9998:8500 --name constructr-consul progrium/consul -server -bootstrap` 
+  - Consul needs to be running, e.g. via `docker run -d -p 9998:8500 --name constructr-consul progrium/consul -server -bootstrap`
 
 ## Contribution policy ##
 
