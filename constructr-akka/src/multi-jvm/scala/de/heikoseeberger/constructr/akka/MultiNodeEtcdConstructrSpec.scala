@@ -42,7 +42,7 @@ object MultiNodeEtcdConstructrSpec {
 
 abstract class MultiNodeEtcdConstructrSpec extends MultiNodeConstructrSpec(
   Coordination.Backend.Etcd,
-  9999,
+  2379,
   "/v2/keys/constructr/akka?recursive=true",
   "/v2/keys/constructr/akka/MultiNodeConstructrSpec/nodes",
   MultiNodeEtcdConstructrSpec.toNodes

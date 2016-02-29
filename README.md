@@ -129,8 +129,8 @@ constructr.cassandra {
 ## Testing
 
 Requirements:
-  - etcd needs to be running, e.g. via `docker run -d -p 9999:2379 quay.io/coreos/etcd:v2.2.5 -advertise-client-urls http://192.168.99.100:9999 -listen-client-urls http://0.0.0.0:2379`
-  - Consul needs to be running, e.g. via `docker run -d -p 9998:8500 --name constructr-consul progrium/consul -server -bootstrap`
+  - etcd needs to be running, e.g. via `docker run -d -p 2379:2379 quay.io/coreos/etcd:v2.2.5 -advertise-client-urls http://192.168.99.100:2379 -listen-client-urls http://0.0.0.0:2379`
+  - Consul needs to be running, e.g. via `docker run -d -p 8500:8500 --name constructr-consul progrium/consul -server -bootstrap`
 
 ## Contribution policy ##
 

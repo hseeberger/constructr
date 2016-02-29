@@ -1,16 +1,15 @@
-import bintray.BintrayKeys
-import com.typesafe.sbt.GitPlugin
-import com.typesafe.sbt.SbtScalariform
-import de.heikoseeberger.sbtheader.{ HeaderKey, HeaderPlugin }
+import bintray.BintrayPlugin
+import com.typesafe.sbt.{GitPlugin, SbtScalariform}
+import de.heikoseeberger.sbtheader.HeaderPlugin
 import de.heikoseeberger.sbtheader.license.Apache2_0
-import sbt._
 import sbt.Keys._
+import sbt._
 import sbt.plugins.JvmPlugin
-import scalariform.formatter.preferences.{ AlignSingleLineCaseStatements, DoubleIndentClassDeclaration }
+import scalariform.formatter.preferences.{AlignSingleLineCaseStatements, DoubleIndentClassDeclaration}
 
 object Build extends AutoPlugin {
 
-  override def requires = JvmPlugin && HeaderPlugin && GitPlugin
+  override def requires = JvmPlugin && HeaderPlugin && GitPlugin && SbtScalariform && BintrayPlugin
 
   override def trigger = allRequirements
 
@@ -53,9 +52,9 @@ object Build extends AutoPlugin {
     GitPlugin.autoImport.git.useGitDescribe := true,
 
     // Header settings
-    HeaderKey.headers := Map("scala" -> Apache2_0("2015", "Heiko Seeberger")),
+    HeaderPlugin.autoImport.headers := Map("scala" -> Apache2_0("2015", "Heiko Seeberger")),
 
     // Bintray settings
-    BintrayKeys.bintrayPackage := "constructr"
+    BintrayPlugin.autoImport.bintrayPackage := "constructr"
   )
 }

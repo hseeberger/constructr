@@ -39,7 +39,7 @@ object MultiNodeConsulConstructrSpec {
 
 abstract class MultiNodeConsulConstructrSpec extends MultiNodeConstructrSpec(
   Coordination.Backend.Consul,
-  9998,
+  8500,
   "/v1/kv/constructr/akka?recurse",
   "/v1/kv/constructr/akka/MultiNodeConstructrSpec/nodes?recurse",
   MultiNodeConsulConstructrSpec.toNodes
