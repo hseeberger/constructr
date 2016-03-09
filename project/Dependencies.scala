@@ -6,7 +6,7 @@ object Version {
   final val Cassandra        = "3.3"
   final val Log4j            = "2.5"
   final val RaptureJsonSpray = "1.1.0"
-  final val Scala            = "2.11.7"
+  final val Scala            = "2.11.8"
   final val ScalaMock        = "3.2.2"
   final val ScalaTest        = "2.2.6"
 }
