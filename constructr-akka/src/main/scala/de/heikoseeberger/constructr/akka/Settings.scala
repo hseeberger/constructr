@@ -27,22 +27,14 @@ final class Settings private (system: ExtendedActorSystem) extends Extension wit
 
   object coordination {
 
-    val backend: Coordination.Backend = {
-      config.getString("coordination.backend").toLowerCase match {
-        case "etcd"   => Coordination.Backend.Etcd
-        case "consul" => Coordination.Backend.Consul
-        case other    => throw new IllegalArgumentException(s"Unknown coordination backend $other!")
-      }
-    }
+    val host: String = config.getString("constructr.coordination.host")
 
-    val host: String = config.getString("coordination.host")
-
-    val port: Int = config.getInt("coordination.port")
+    val port: Int = config.getInt("constructr.coordination.port")
   }
 
-  val joinTimeout: FiniteDuration = getDuration("join-timeout")
+  val joinTimeout: FiniteDuration = getDuration("constructr.join-timeout")
 
-  override protected def config = system.settings.config.getConfig("constructr.akka")
+  override protected def config = system.settings.config
 }
 
 trait ActorSettings { this: Actor =>

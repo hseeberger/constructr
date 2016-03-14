@@ -1,13 +1,19 @@
-lazy val root = project
-  .copy(id = "root")
+lazy val construtrRoot = project
+  .copy(id = "constructr-root")
   .in(file("."))
   .enablePlugins(GitVersioning)
-  .aggregate(constructrCoordination, constructrMachine, constructrAkka, constructrCassandra)
+  .aggregate(constructrCoordination, constructrCoordinationEtcd, constructrMachine, constructrAkka, constructrCassandra)
 
 lazy val constructrCoordination = project
   .copy(id = "constructr-coordination")
   .in(file("constructr-coordination"))
   .enablePlugins(AutomateHeaderPlugin)
+
+lazy val constructrCoordinationEtcd = project
+  .copy(id = "constructr-coordination-etcd")
+  .in(file("constructr-coordination-etcd"))
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(constructrCoordination)
 
 lazy val constructrMachine = project
   .copy(id = "constructr-machine")
@@ -20,17 +26,17 @@ lazy val constructrAkka = project
   .in(file("constructr-akka"))
   .enablePlugins(AutomateHeaderPlugin)
   .configs(MultiJvm)
-  .dependsOn(constructrCoordination, constructrMachine)
+  .dependsOn(constructrMachine, constructrCoordinationEtcd % "test->compile")
 
 lazy val constructrCassandra = project
   .copy(id = "constructr-cassandra")
   .in(file("constructr-cassandra"))
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(constructrCoordination, constructrMachine)
+  .dependsOn(constructrMachine)
 
-name := "constructr"
+name := "constructr-root"
 
-unmanagedSourceDirectories in Compile := Nil
-unmanagedSourceDirectories in Test := Nil
+unmanagedSourceDirectories in Compile := Vector.empty
+unmanagedSourceDirectories in Test    := Vector.empty
 
 publishArtifact := false

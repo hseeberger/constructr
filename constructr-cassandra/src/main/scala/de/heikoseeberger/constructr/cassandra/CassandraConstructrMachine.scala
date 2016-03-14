@@ -26,9 +26,9 @@ object CassandraConstructrMachine {
 
   final val Name = "cassandra-constructr-machine"
 
-  def props[B <: Coordination.Backend](
+  def props(
     selfNode: InetAddress,
-    coordination: Coordination[B],
+    coordination: Coordination,
     coordinationTimeout: FiniteDuration,
     coordinationRetries: Int,
     retryDelay: FiniteDuration,
@@ -36,7 +36,7 @@ object CassandraConstructrMachine {
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
     constructr: ActorRef
-  ): Props = Props(new CassandraConstructrMachine[B](
+  ): Props = Props(new CassandraConstructrMachine(
     selfNode,
     coordination,
     coordinationTimeout,
@@ -49,9 +49,9 @@ object CassandraConstructrMachine {
   ))
 }
 
-final class CassandraConstructrMachine[B <: Coordination.Backend](
+final class CassandraConstructrMachine(
   selfNode: InetAddress,
-  coordination: Coordination[B],
+  coordination: Coordination,
   coordinationTimeout: FiniteDuration,
   coordinationRetries: Int,
   retryDelay: FiniteDuration,

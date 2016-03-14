@@ -28,28 +28,21 @@ final class Settings private (system: ExtendedActorSystem) extends Extension wit
 
   object coordination {
 
-    val backend: Coordination.Backend = {
-      config.getString("coordination.backend").toLowerCase match {
-        case "etcd" => Coordination.Backend.Etcd
-        case other  => throw new IllegalArgumentException(s"Unknown coordination backend $other!")
-      }
-    }
+    val host: String = config.getString("constructr.coordination.host")
 
-    val host: String = config.getString("coordination.host")
-
-    val port: Int = config.getInt("coordination.port")
+    val port: Int = config.getInt("constructr.coordination.port")
   }
 
-  val clusterName: String = config.getString("cluster-name")
+  val clusterName: String = config.getString("constructr.cluster-name")
 
-  val seedProviderTimeout: FiniteDuration = getDuration("seed-provider-timeout")
+  val seedProviderTimeout: FiniteDuration = getDuration("constructr.seed-provider-timeout")
 
   val selfNode: InetAddress = {
-    val selfNode = config.getString("self-address")
+    val selfNode = config.getString("constructr.self-address")
     if (selfNode.toLowerCase == "auto") InetAddress.getLocalHost else InetAddress.getByName(selfNode)
   }
 
-  override protected def config = system.settings.config.getConfig("constructr.cassandra")
+  override protected def config = system.settings.config
 }
 
 trait ActorSettings { this: Actor =>

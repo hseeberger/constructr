@@ -29,7 +29,6 @@ import akka.stream.ActorMaterializer
 import akka.testkit.TestDuration
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import de.heikoseeberger.constructr.coordination.Coordination
 import org.scalatest.{ BeforeAndAfterAll, FreeSpecLike, Matchers }
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
@@ -43,32 +42,30 @@ object ConstructrMultiNodeConfig {
   }
 }
 
-class ConstructrMultiNodeConfig(coordinationBackend: Coordination.Backend, coordinationPort: Int) extends MultiNodeConfig {
+class ConstructrMultiNodeConfig(coordinationPort: Int) extends MultiNodeConfig {
   import ConstructrMultiNodeConfig._
 
   commonConfig(ConfigFactory.load())
   for (n <- 1.to(5)) {
     val port = 2550 + n
     nodeConfig(role(port.toString))(ConfigFactory.parseString(
-      s"""|akka.actor.provider                  = akka.cluster.ClusterActorRefProvider
-          |akka.remote.netty.tcp.hostname       = "127.0.0.1"
-          |akka.remote.netty.tcp.port           = $port
-          |constructr.akka.coordination.backend = $coordinationBackend
-          |constructr.akka.coordination.host    = $coordinationHost
-          |constructr.akka.coordination.port    = $coordinationPort
+      s"""|akka.actor.provider            = akka.cluster.ClusterActorRefProvider
+          |akka.remote.netty.tcp.hostname = "127.0.0.1"
+          |akka.remote.netty.tcp.port     = $port
+          |constructr.coordination.host   = $coordinationHost
+          |constructr.coordination.port   = $coordinationPort
           |""".stripMargin
     ))
   }
 }
 
 abstract class MultiNodeConstructrSpec(
-  coordinationBackend: Coordination.Backend,
   coordinationPort: Int,
   delete: String,
   get: String,
   toNodes: String => Set[Address]
 )
-    extends MultiNodeSpec(new ConstructrMultiNodeConfig(coordinationBackend, coordinationPort))
+    extends MultiNodeSpec(new ConstructrMultiNodeConfig(coordinationPort))
     with FreeSpecLike with Matchers with BeforeAndAfterAll {
   import ConstructrMultiNodeConfig._
   import RequestBuilding._

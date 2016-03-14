@@ -16,27 +16,10 @@
 
 package de.heikoseeberger.constructr
 
-import akka.Done
-import akka.http.scaladsl.model.ResponseEntity
-import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
-import java.util.Base64
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.concurrent.duration.Duration
-
 package object coordination {
 
   type Traversable[+A] = scala.collection.immutable.Traversable[A]
   type Iterable[+A] = scala.collection.immutable.Iterable[A]
   type Seq[+A] = scala.collection.immutable.Seq[A]
   type IndexedSeq[+A] = scala.collection.immutable.IndexedSeq[A]
-
-  def ignore(entity: ResponseEntity)(implicit ec: ExecutionContext, mat: Materializer): Future[Done] =
-    entity.dataBytes.runWith(Sink.ignore)
-
-  def encode(bytes: Array[Byte]): String = Base64.getUrlEncoder.encodeToString(bytes)
-
-  def decode(s: String): Array[Byte] = Base64.getUrlDecoder.decode(s)
-
-  def toSeconds(duration: Duration): String = (duration.toSeconds + 1).toString
 }

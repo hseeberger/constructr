@@ -2,7 +2,7 @@
 
 [![Join the chat at https://gitter.im/hseeberger/constructr](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/hseeberger/constructr?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-ConstructR aims at cluster bootstrapping (construction) by using a coordination service. Currently it provides libraries for bootstrapping [Akka](http://akka.io) and [Cassandra](https://cassandra.apache.org) clusters via [etcd](https://github.com/coreos/etcd) or [Consul](https://www.consul.io).
+ConstructR aims at cluster bootstrapping (construction) by using a coordination service. Currently it provides libraries for bootstrapping [Akka](http://akka.io) and [Cassandra](https://cassandra.apache.org) clusters via [etcd](https://github.com/coreos/etcd).
 
 Disambiguation: Despite the similar name, ConstructR is not related to [Lightbend ConductR](http://www.lightbend.com/products/conductr).
 
@@ -60,11 +60,10 @@ This will start the `Constructr` actor as a system actor. Alternatively start it
 The following listing shows the available configuration settings with their defaults:
 
 ```
-constructr.akka {
+constructr {
   coordination {
-    backend = etcd      // Or consul
-    host    = localhost
-    port    = 2379
+    host = localhost
+    port = 2379
   }
 
   coordination-timeout = 3 seconds  // Maximum response time for coordination service (e.g. etcd)
@@ -103,12 +102,11 @@ If you want to run Cassandra in Docker, ConstructR provides the [constructr/cass
 The following listing shows the available configuration settings with their defaults:
 
 ```
-constructr.cassandra {
+constructr {
   coordination {
-    backend = etcd                            // Or consul
-    host    = localhost
-    host    = ${?CASSANDRA_BROADCAST_ADDRESS} // Works for Docker image
-    port    = 2379
+    host = localhost
+    host = ${?CASSANDRA_BROADCAST_ADDRESS} // Works for Docker image
+    port = 2379
   }
 
   coordination-timeout = 3 seconds  // Maximum response time for coordination service (e.g. etcd)
@@ -126,11 +124,14 @@ constructr.cassandra {
 }
 ```
 
+## Coordination
+
+ConstructR comes with out-of-the-box support for etcd: simply depend on the "constructr-coordination-etcd" module. If you want to use some other coordination backend, e.g. Consul, simply implement the `Coordination` interface from the "constructr-coordination" module and make sure to provide the fully qualifeid class name via the `constructr.coordination.class-name` configuration setting.
+
 ## Testing
 
 Requirements:
   - etcd needs to be running, e.g. via `docker run -d -p 2379:2379 quay.io/coreos/etcd:v2.2.5 -advertise-client-urls http://192.168.99.100:2379 -listen-client-urls http://0.0.0.0:2379`
-  - Consul needs to be running, e.g. via `docker run -d -p 8500:8500 --name constructr-consul progrium/consul -server -bootstrap`
 
 ## Contribution policy ##
 
