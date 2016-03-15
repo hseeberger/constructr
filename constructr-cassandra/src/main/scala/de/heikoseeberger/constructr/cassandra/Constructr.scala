@@ -27,7 +27,7 @@ object Constructr {
   final val Name = "constructr"
 
   case object GetNodes
-  final case class Nodes(value: Vector[InetAddress])
+  final case class Nodes(value: Set[InetAddress])
 
   def props: Props = Props(new Constructr)
 }
@@ -63,8 +63,8 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
   private def createConstructrMachine() = {
     val coordination = {
       import settings.coordination._
-      val sendFlow = Http()(context.system).outgoingConnection(host, port)
-      Coordination(backend)("cassandra", settings.clusterName, host, port, sendFlow, context.dispatcher, ActorMaterializer())
+      val connection = Http()(context.system).outgoingConnection(host, port)
+      Coordination("cassandra", settings.clusterName, context.system.settings.config)(connection, ActorMaterializer())
     }
     context.actorOf(
       CassandraConstructrMachine.props(

@@ -17,26 +17,26 @@
 package de.heikoseeberger.constructr.machine
 
 import com.typesafe.config.Config
-import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS }
+import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS }
 
 trait ConstructrMachineSettings {
 
-  final val coordinationTimeout: FiniteDuration = getDuration("coordination-timeout")
+  final val coordinationTimeout: FiniteDuration = getDuration("constructr.coordination-timeout")
 
   final val maxNrOfSeedNodes: Int = {
-    val maxNrOfSeedNodes = config.getInt("max-nr-of-seed-nodes")
+    val maxNrOfSeedNodes = config.getInt("constructr.max-nr-of-seed-nodes")
     if (maxNrOfSeedNodes <= 0) Int.MaxValue else maxNrOfSeedNodes
   }
 
-  final val nrOfRetries: Int = config.getInt("nr-of-retries")
+  final val nrOfRetries: Int = config.getInt("constructr.nr-of-retries")
 
-  final val refreshInterval: FiniteDuration = getDuration("refresh-interval")
+  final val refreshInterval: FiniteDuration = getDuration("constructr.refresh-interval")
 
-  final val retryDelay: FiniteDuration = getDuration("retry-delay")
+  final val retryDelay: FiniteDuration = getDuration("constructr.retry-delay")
 
-  final val ttlFactor: Double = config.getDouble("ttl-factor")
+  final val ttlFactor: Double = config.getDouble("constructr.ttl-factor")
 
   protected def config: Config
 
-  protected def getDuration(key: String) = FiniteDuration(config.getDuration(key, MILLISECONDS), MILLISECONDS)
+  protected def getDuration(key: String): FiniteDuration = FiniteDuration(config.getDuration(key).toNanos, NANOSECONDS)
 }

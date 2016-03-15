@@ -58,8 +58,8 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
   private def createConstructrMachine() = {
     val coordination = {
       import settings.coordination._
-      val sendFlow = Http()(context.system).outgoingConnection(host, port)
-      Coordination(backend)("akka", context.system.name, host, port, sendFlow, context.dispatcher, ActorMaterializer())
+      val connection = Http()(context.system).outgoingConnection(host, port)
+      Coordination("akka", context.system.name, context.system.settings.config)(connection, ActorMaterializer())
     }
     context.actorOf(
       AkkaConstructrMachine.props(

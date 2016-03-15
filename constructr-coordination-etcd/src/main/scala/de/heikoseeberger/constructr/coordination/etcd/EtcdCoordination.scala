@@ -15,26 +15,39 @@
  */
 
 package de.heikoseeberger.constructr.coordination
+package etcd
 
+import akka.Done
 import akka.http.scaladsl.client.RequestBuilding.{ Get, Put }
 import akka.http.scaladsl.model.StatusCodes.{ Created, NotFound, OK, PreconditionFailed }
-import akka.http.scaladsl.model.{ HttpResponse, ResponseEntity, Uri }
+import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, ResponseEntity, StatusCode, Uri }
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.concurrent.duration.FiniteDuration
+import akka.stream.scaladsl.{ Sink, Source }
+import com.typesafe.config.Config
+import java.util.Base64
+import scala.concurrent.Future
+import scala.concurrent.duration.{ Duration, FiniteDuration }
+
+object EtcdCoordination {
+
+  final case class UnexpectedStatusCode(uri: Uri, statusCode: StatusCode)
+    extends RuntimeException(s"Unexpected status code $statusCode for URI $uri")
+
+  private def toSeconds(duration: Duration) = (duration.toSeconds + 1).toString
+}
 
 final class EtcdCoordination(
   prefix: String,
   clusterName: String,
-  host: String,
-  port: Int
+  config: Config
 )(implicit
-  sendFlow: Coordination.SendFlow,
-  ec: ExecutionContext,
+  connection: Coordination.Connection,
   mat: Materializer)
-    extends Coordination[Coordination.Backend.Etcd.type] {
+    extends Coordination {
   import Coordination._
+  import EtcdCoordination._
+  import mat.executionContext
 
   private val kvUri = Uri(s"/v2/keys")
 
@@ -42,7 +55,7 @@ final class EtcdCoordination(
 
   private val nodesUri = baseUri.withPath(baseUri.path / "nodes")
 
-  override def getNodes[N: NodeSerialization]() = {
+  override def getNodes[A: NodeSerialization]() = {
     def unmarshalNodes(entity: ResponseEntity) = {
       def toNodes(s: String) = {
         import rapture.json._
@@ -50,23 +63,23 @@ final class EtcdCoordination(
         def jsonToNode(json: Json) = {
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
           val key = json.key.as[String].stripPrefix(s"$init/")
-          NodeSerialization.fromBytes(decode(key))
+          NodeSerialization.fromBytes(Base64.getUrlDecoder.decode(key))
         }
         Json.parse(s).node match {
-          case json"""{ "nodes": $nodes }""" => nodes.as[Vector[Json]].map(jsonToNode)
-          case _                             => Vector.empty
+          case json"""{ "nodes": $nodes }""" => nodes.as[Set[Json]].map(jsonToNode)
+          case _                             => Set.empty[A]
         }
       }
       Unmarshal(entity).to[String].map(toNodes)
     }
     send(Get(nodesUri)).flatMap {
       case HttpResponse(OK, _, entity, _)       => unmarshalNodes(entity)
-      case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => Vector.empty)
+      case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => Set.empty)
       case HttpResponse(other, _, entity, _)    => ignore(entity).map(_ => throw UnexpectedStatusCode(nodesUri, other))
     }
   }
 
-  override def lock[N](self: N, ttl: FiniteDuration) = {
+  override def lock[A: NodeSerialization](self: A, ttl: FiniteDuration) = {
     val lockUri = baseUri.withPath(baseUri.path / "lock").withQuery(Uri.Query("value" -> self.toString))
     def readLock() = {
       def unmarshalLockHolder(entity: ResponseEntity) = {
@@ -86,45 +99,41 @@ final class EtcdCoordination(
     def writeLock() = {
       val uri = lockUri.withQuery(("prevExist" -> "false") +: ("ttl" -> toSeconds(ttl)) +: Uri.Query(lockUri.rawQueryString))
       send(Put(uri)).flatMap {
-        case HttpResponse(Created, _, entity, _)            => ignore(entity).map(_ => LockResult.Success)
-        case HttpResponse(PreconditionFailed, _, entity, _) => ignore(entity).map(_ => LockResult.Failure)
+        case HttpResponse(Created, _, entity, _)            => ignore(entity).map(_ => true)
+        case HttpResponse(PreconditionFailed, _, entity, _) => ignore(entity).map(_ => false)
         case HttpResponse(other, _, entity, _)              => ignore(entity).map(_ => throw UnexpectedStatusCode(lockUri, other))
       }
     }
     def updateLock(lockHolder: String) = {
       val uri = lockUri.withQuery(("prevValue" -> lockHolder) +: ("ttl" -> toSeconds(ttl)) +: Uri.Query(lockUri.rawQueryString))
       send(Put(uri)).flatMap {
-        case HttpResponse(OK, _, entity, _)                 => ignore(entity).map(_ => LockResult.Success)
-        case HttpResponse(PreconditionFailed, _, entity, _) => ignore(entity).map(_ => LockResult.Failure)
+        case HttpResponse(OK, _, entity, _)                 => ignore(entity).map(_ => true)
+        case HttpResponse(PreconditionFailed, _, entity, _) => ignore(entity).map(_ => false)
         case HttpResponse(other, _, entity, _)              => ignore(entity).map(_ => throw UnexpectedStatusCode(lockUri, other))
       }
     }
     readLock().flatMap {
       case Some(lockHolder) if lockHolder == self.toString => updateLock(lockHolder)
-      case Some(_)                                         => Future.successful(LockResult.Failure)
+      case Some(_)                                         => Future.successful(false)
       case None                                            => writeLock()
     }
   }
 
-  override def addSelf[N: NodeSerialization](self: N, ttl: FiniteDuration) = {
-    val uri = addOrRefreshUri(self, ttl)
+  override def addSelf[A: NodeSerialization](self: A, ttl: FiniteDuration) = addSelfOrRefresh(self, ttl)
+
+  override def refresh[A: NodeSerialization](self: A, ttl: FiniteDuration) = addSelfOrRefresh(self, ttl)
+
+  private def addSelfOrRefresh[A: NodeSerialization](self: A, ttl: FiniteDuration) = {
+    val uri = nodesUri
+      .withPath(nodesUri.path / Base64.getUrlEncoder.encodeToString(NodeSerialization.toBytes(self)))
+      .withQuery(Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString))
     send(Put(uri)).flatMap {
-      case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => SelfAdded[Coordination.Backend.Etcd.type](()))
+      case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => Done)
       case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
   }
 
-  override def refresh[N: NodeSerialization](self: N, ttl: FiniteDuration, context: Unit) = {
-    val uri = addOrRefreshUri(self, ttl)
-    send(Put(uri)).flatMap {
-      case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => Refreshed)
-      case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
-    }
-  }
+  private def send(request: HttpRequest) = Source.single(request).via(connection).runWith(Sink.head)
 
-  override def initialBackendContext = ()
-
-  private def addOrRefreshUri[N: NodeSerialization](self: N, ttl: FiniteDuration) = nodesUri
-    .withPath(nodesUri.path / encode(NodeSerialization.toBytes(self)))
-    .withQuery(Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString))
+  private def ignore(entity: ResponseEntity) = entity.dataBytes.runWith(Sink.ignore)
 }

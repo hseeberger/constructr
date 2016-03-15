@@ -16,80 +16,83 @@
 
 package de.heikoseeberger.constructr.coordination
 
+import akka.Done
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, StatusCode, Uri }
+import akka.http.scaladsl.model.{ HttpRequest, HttpResponse }
 import akka.stream.Materializer
-import akka.stream.scaladsl.{ Flow, Sink, Source }
-import scala.concurrent.{ ExecutionContext, Future }
+import akka.stream.scaladsl.Flow
+import com.typesafe.config.Config
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 object Coordination {
 
-  type SendFlow = Flow[HttpRequest, HttpResponse, Future[Http.OutgoingConnection]]
-
-  sealed trait Backend {
-    type Context
-  }
-
-  object Backend {
-    case object Etcd extends Backend {
-      override type Context = Unit
-    }
-    case object Consul extends Backend {
-      type SessionId = String
-      override type Context = SessionId
-    }
-  }
+  type Connection = Flow[HttpRequest, HttpResponse, Future[Http.OutgoingConnection]]
 
   object NodeSerialization {
-    def fromBytes[N: NodeSerialization](bytes: Array[Byte]): N = implicitly[NodeSerialization[N]].fromBytes(bytes)
-    def toBytes[N: NodeSerialization](n: N): Array[Byte] = implicitly[NodeSerialization[N]].toBytes(n)
-  }
-  trait NodeSerialization[N] {
-    def fromBytes(bytes: Array[Byte]): N
-    def toBytes(n: N): Array[Byte]
+    def fromBytes[A: NodeSerialization](bytes: Array[Byte]): A = implicitly[NodeSerialization[A]].fromBytes(bytes)
+    def toBytes[A: NodeSerialization](n: A): Array[Byte] = implicitly[NodeSerialization[A]].toBytes(n)
   }
 
-  sealed trait LockResult
-  object LockResult {
-    case object Success extends LockResult
-    case object Failure extends LockResult
+  /**
+   * Type class for serializing nodes.
+   * @tparam A node type
+   */
+  trait NodeSerialization[A] {
+    def fromBytes(bytes: Array[Byte]): A
+    def toBytes(n: A): Array[Byte]
   }
 
-  case class SelfAdded[B <: Coordination.Backend](context: B#Context)
-
-  case object Refreshed
-
-  case class UnexpectedStatusCode(uri: Uri, statusCode: StatusCode) extends RuntimeException(s"Unexpected status code $statusCode for URI $uri")
-
-  def apply[B <: Coordination.Backend](backend: Backend)(
+  def apply(
     prefix: String,
     clusterName: String,
-    host: String,
-    port: Int,
-    sendFlow: SendFlow,
-    ec: ExecutionContext,
-    mat: Materializer
-  ): Coordination[B] =
-    backend match {
-      case Backend.Etcd   => new EtcdCoordination(prefix, clusterName, host, port)(sendFlow, ec, mat).asInstanceOf[Coordination[B]]
-      case Backend.Consul => new ConsulCoordination(prefix, clusterName, host, port)(sendFlow, ec, mat).asInstanceOf[Coordination[B]]
-    }
-
-  def send(request: HttpRequest)(implicit sendFlow: Coordination.SendFlow, mat: Materializer): Future[HttpResponse] =
-    Source.single(request).via(sendFlow).runWith(Sink.head)
+    config: Config
+  )(implicit
+    connection: Coordination.Connection,
+    mat: Materializer): Coordination = Class
+    .forName(config.getString("constructr.coordination.class-name"))
+    .getConstructor(classOf[String], classOf[String], classOf[Config], classOf[Connection], classOf[Materializer])
+    .newInstance(prefix, clusterName, config, connection, mat).asInstanceOf[Coordination]
 }
 
-abstract class Coordination[B <: Coordination.Backend] {
+/**
+ * Abstraction for a coordination service. Implementations must provide a constructor with the following signature:
+ * `(prefix: String, clusterName: String, config: Config)(implicit connection: Coordination.Connection, mat: Materializer)`.
+ */
+abstract class Coordination {
   import Coordination._
 
-  def getNodes[N: NodeSerialization](): Future[Vector[N]]
+  /**
+   * Get the nodes.
+   * @tparam A node type, must have a [[Coordination.NodeSerialization]]
+   * @return future of nodes
+   */
+  def getNodes[A: NodeSerialization](): Future[Set[A]]
 
-  def lock[N](self: N, ttl: FiniteDuration): Future[LockResult]
+  /**
+   * Akquire a lock for bootstrapping the cluster (first node).
+   * @param self self node
+   * @param ttl TTL for the lock
+   * @tparam A node type, must have a [[Coordination.NodeSerialization]]
+   * @return true, if lock could be akquired, else false
+   */
+  def lock[A: NodeSerialization](self: A, ttl: FiniteDuration): Future[Boolean]
 
-  def addSelf[N: NodeSerialization](self: N, ttl: FiniteDuration): Future[SelfAdded[B]]
+  /**
+   * Add self to the nodes.
+   * @param self self node
+   * @param ttl TTL for the node entry
+   * @tparam A node type, must have a [[Coordination.NodeSerialization]]
+   * @return future signaling done
+   */
+  def addSelf[A: NodeSerialization](self: A, ttl: FiniteDuration): Future[Done]
 
-  def refresh[N: NodeSerialization](self: N, ttl: FiniteDuration, context: B#Context): Future[Refreshed.type]
-
-  def initialBackendContext: B#Context
+  /**
+   * Refresh entry for self.
+   * @param self self node
+   * @param ttl TTL for the node entry
+   * @tparam A node type, must have a [[Coordination.NodeSerialization]]
+   * @return future signaling done
+   */
+  def refresh[A: NodeSerialization](self: A, ttl: FiniteDuration): Future[Done]
 }

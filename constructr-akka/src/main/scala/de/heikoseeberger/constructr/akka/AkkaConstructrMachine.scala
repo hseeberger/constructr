@@ -27,9 +27,9 @@ object AkkaConstructrMachine {
 
   final val Name = "akka-constructr-machine"
 
-  def props[B <: Coordination.Backend](
+  def props[C](
     selfNode: Address,
-    coordination: Coordination[B],
+    coordination: Coordination,
     coordinationTimeout: FiniteDuration,
     coordinationRetries: Int,
     retryDelay: FiniteDuration,
@@ -37,7 +37,7 @@ object AkkaConstructrMachine {
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
     joinTimeout: FiniteDuration
-  ): Props = Props(new AkkaConstructrMachine[B](
+  ): Props = Props(new AkkaConstructrMachine(
     selfNode,
     coordination,
     coordinationTimeout,
@@ -50,9 +50,9 @@ object AkkaConstructrMachine {
   ))
 }
 
-final class AkkaConstructrMachine[B <: Coordination.Backend](
+final class AkkaConstructrMachine(
   selfNode: Address,
-  coordination: Coordination[B],
+  coordination: Coordination,
   coordinationTimeout: FiniteDuration,
   coordinationRetries: Int,
   retryDelay: FiniteDuration,
@@ -74,7 +74,7 @@ final class AkkaConstructrMachine[B <: Coordination.Backend](
   import ConstructrMachine._
 
   override protected def intoJoiningHandler() = {
-    Cluster(context.system).joinSeedNodes(seedNodes(nextStateData.nodes)) // An existing seed node process would be stopped
+    Cluster(context.system).joinSeedNodes(nextStateData.nodes.take(maxNrOfSeedNodes).toVector) // An existing seed node process would be stopped
     Cluster(context.system).subscribe(self, InitialStateAsEvents, classOf[MemberJoined], classOf[MemberUp])
   }
 

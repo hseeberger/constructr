@@ -40,6 +40,6 @@ class ConstructrSeedProvider(params: JMap[String, String]) extends SeedProvider 
       timeout
     )
     system.log.info(s"Determined these seed nodes: ${nodes.mkString(", ")}")
-    nodes.asJava
+    nodes.toVector.asJava
   }
 }
