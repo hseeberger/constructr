@@ -17,13 +17,15 @@
 package de.heikoseeberger.constructr.machine
 
 import akka.Done
-import akka.actor.{ FSM, Status }
+import akka.actor.{ FSM, Props, Status }
 import akka.pattern.pipe
 import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
 import scala.concurrent.duration.FiniteDuration
 
 object ConstructrMachine {
+
+  type StateFunction[A] = PartialFunction[FSM.Event[ConstructrMachine.Data[A]], FSM.State[ConstructrMachine.State, ConstructrMachine.Data[A]]]
 
   sealed trait State
   object State {
@@ -39,10 +41,40 @@ object ConstructrMachine {
   case class Data[A](nodes: Set[A], retryState: State, nrOfRetriesLeft: Int)
 
   final case class StateTimeoutException(state: State) extends RuntimeException(s"State timeout triggered in state $state!")
+
+  final val Name = "constructr-machine"
+
+  def props[A: Coordination.NodeSerialization](
+    selfNode: A,
+    coordination: Coordination,
+    coordinationTimeout: FiniteDuration,
+    coordinationRetries: Int,
+    retryDelay: FiniteDuration,
+    refreshInterval: FiniteDuration,
+    ttlFactor: Double,
+    maxNrOfSeedNodes: Int,
+    joinTimeout: FiniteDuration,
+    intoJoiningHandler: ConstructrMachine[A] => Unit,
+    joiningFunction: ConstructrMachine[A] => StateFunction[A],
+    outOfJoiningHandler: ConstructrMachine[A] => Unit
+  ): Props = Props(new ConstructrMachine[A](
+    selfNode,
+    coordination,
+    coordinationTimeout,
+    coordinationRetries,
+    retryDelay,
+    refreshInterval,
+    ttlFactor,
+    maxNrOfSeedNodes,
+    joinTimeout,
+    intoJoiningHandler,
+    joiningFunction,
+    outOfJoiningHandler
+  ))
 }
 
-abstract class ConstructrMachine[A: Coordination.NodeSerialization](
-    selfNode: A,
+final class ConstructrMachine[A: Coordination.NodeSerialization](
+    val selfNode: A,
     coordination: Coordination,
     coordinationTimeout: FiniteDuration,
     nrOfRetries: Int,
@@ -50,7 +82,10 @@ abstract class ConstructrMachine[A: Coordination.NodeSerialization](
     refreshInterval: FiniteDuration,
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
-    joinTimeout: FiniteDuration
+    joinTimeout: FiniteDuration,
+    intoJoiningHandler: ConstructrMachine[A] => Unit,
+    joiningFunction: ConstructrMachine[A] => ConstructrMachine.StateFunction[A],
+    outOfJoiningHandler: ConstructrMachine[A] => Unit
 ) extends FSM[ConstructrMachine.State, ConstructrMachine.Data[A]] {
   import ConstructrMachine._
   import context.dispatcher
@@ -123,24 +158,18 @@ abstract class ConstructrMachine[A: Coordination.NodeSerialization](
   onTransition {
     case _ -> State.Joining =>
       log.debug("Transitioning to Joining")
-      intoJoiningHandler()
+      intoJoiningHandler(this)
   }
 
-  when(State.Joining, joinTimeout)(joiningFunction)
+  when(State.Joining, joinTimeout)(joiningFunction(this))
 
   onTransition {
     case State.Joining -> _ =>
       log.debug("Transitioning out of Joining")
-      outOfJoiningHandler()
+      outOfJoiningHandler(this)
   }
 
-  protected def intoJoiningHandler(): Unit
-
-  protected def joiningFunction: StateFunction
-
-  protected def outOfJoiningHandler(): Unit
-
-  final protected def seedNodes(nodes: Set[A]): Set[A] = nodes.take(maxNrOfSeedNodes)
+  def seedNodes(nodes: Set[A]): Set[A] = nodes.take(maxNrOfSeedNodes)
 
   // AddingSelf
 
