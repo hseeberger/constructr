@@ -16,21 +16,46 @@
 
 package de.heikoseeberger.constructr.akka
 
-import akka.actor.{ SupervisorStrategy, Actor, ActorLogging, ActorRef, Props, Terminated }
+import akka.actor.{ Actor, ActorLogging, ActorRef, Address, FSM, Props, SupervisorStrategy, Terminated }
 import akka.cluster.Cluster
-import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberExited, MemberLeft, MemberRemoved }
+import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberExited, MemberJoined, MemberLeft, MemberRemoved, MemberUp }
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
+import de.heikoseeberger.constructr.machine.ConstructrMachine
 
 object Constructr {
 
   final val Name = "constructr"
 
   def props: Props = Props(new Constructr)
+
+  private def intoJoiningHandler(machine: ConstructrMachine[Address]) = {
+    import machine._
+    Cluster(context.system).joinSeedNodes(seedNodes(nextStateData.nodes).toVector) // An existing seed node process would be stopped
+    Cluster(context.system).subscribe(self, InitialStateAsEvents, classOf[MemberJoined], classOf[MemberUp])
+  }
+
+  private def joiningFunction(machine: ConstructrMachine[Address]): ConstructrMachine.StateFunction[Address] = {
+    import ConstructrMachine._
+    import machine._
+    {
+      case FSM.Event(MemberJoined(member), _) if member.address == selfNode => goto(State.AddingSelf)
+      case FSM.Event(MemberJoined(member), _)                               => stay()
+      case FSM.Event(MemberUp(member), _) if member.address == selfNode     => goto(State.AddingSelf)
+      case FSM.Event(MemberUp(member), _)                                   => stay()
+      case FSM.Event(StateTimeout, _)                                       => stop(FSM.Failure("Timeout in Joining!"))
+    }
+  }
+
+  private def outOfJoiningHandler(machine: ConstructrMachine[Address]) = {
+    import machine._
+    Cluster(context.system).unsubscribe(self)
+  }
 }
 
 final class Constructr private extends Actor with ActorLogging with ActorSettings {
+  import Constructr._
 
   override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
 
@@ -62,7 +87,7 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
       Coordination("akka", context.system.name, context.system.settings.config)(connection, ActorMaterializer())
     }
     context.actorOf(
-      AkkaConstructrMachine.props(
+      ConstructrMachine.props(
         Cluster(context.system).selfAddress,
         coordination,
         settings.coordinationTimeout,
@@ -71,9 +96,12 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
         settings.refreshInterval,
         settings.ttlFactor,
         settings.maxNrOfSeedNodes,
-        settings.joinTimeout
+        settings.joinTimeout,
+        intoJoiningHandler,
+        joiningFunction,
+        outOfJoiningHandler
       ),
-      AkkaConstructrMachine.Name
+      ConstructrMachine.Name
     )
   }
 }

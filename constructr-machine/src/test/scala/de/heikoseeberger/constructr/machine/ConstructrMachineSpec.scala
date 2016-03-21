@@ -63,13 +63,11 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
         refreshInterval = 1.second.dilated,
         ttlFactor = 1.5,
         maxNrOfSeedNodes = 3,
-        joinTimeout = 100.millis.dilated
-      ) {
-        import ConstructrMachine._
-        override protected def intoJoiningHandler() = ()
-        override protected def joiningFunction = { case Event(StateTimeout, _) => goto(State.AddingSelf) }
-        override protected def outOfJoiningHandler() = ()
-      }))
+        joinTimeout = 100.millis.dilated,
+        _ => (),
+        m => { case FSM.Event(FSM.StateTimeout, _) => m.goto(State.AddingSelf) },
+        _ => ()
+      )))
       machine ! FSM.SubscribeTransitionCallBack(monitor.ref)
       monitor.watch(machine)
 
@@ -140,7 +138,7 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
           .returns(Future.successful(Done))
       }
 
-      val machine = system.actorOf(Props(new ConstructrMachine(
+      val machine = system.actorOf(Props(new ConstructrMachine[String](
         selfNode = "self",
         coordination = coordination,
         coordinationTimeout = 100.millis.dilated,
@@ -149,13 +147,11 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
         refreshInterval = 1.second.dilated,
         ttlFactor = 1.5,
         maxNrOfSeedNodes = 3,
-        joinTimeout = 100.millis.dilated
-      ) {
-        import ConstructrMachine._
-        override protected def intoJoiningHandler() = ()
-        override protected def joiningFunction = { case Event(StateTimeout, _) => goto(State.AddingSelf) }
-        override protected def outOfJoiningHandler() = ()
-      }))
+        joinTimeout = 100.millis.dilated,
+        _ => (),
+        m => { case FSM.Event(FSM.StateTimeout, _) => m.goto(State.AddingSelf) },
+        _ => ()
+      )))
       machine ! FSM.SubscribeTransitionCallBack(monitor.ref)
 
       monitor.expectMsgPF(hint = "Current state GettingNodes") {
