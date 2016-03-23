@@ -59,7 +59,7 @@ object Coordination {
  * Abstraction for a coordination service. Implementations must provide a constructor with the following signature:
  * `(prefix: String, clusterName: String, config: Config)(implicit connection: Coordination.Connection, mat: Materializer)`.
  */
-abstract class Coordination {
+trait Coordination {
   import Coordination._
 
   /**
