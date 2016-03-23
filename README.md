@@ -126,7 +126,7 @@ constructr {
 
 ## Coordination
 
-ConstructR comes with out-of-the-box support for etcd: simply depend on the "constructr-coordination-etcd" module. If you want to use some other coordination backend, e.g. Consul, simply implement the `Coordination` trait from the "constructr-coordination" module and make sure to provide the fully qualifeid class name via the `constructr.coordination.class-name` configuration setting.
+ConstructR comes with out-of-the-box support for etcd: simply depend on the "constructr-coordination-etcd" module. If you want to use some other coordination backend, e.g. Consul, simply implement the `Coordination` trait from the "constructr-coordination" module and make sure to provide the fully qualified class name via the `constructr.coordination.class-name` configuration setting.
 
 ## Testing
 
