@@ -44,7 +44,7 @@ If something goes wrong, e.g. a timeout (after configurable retries are exhauste
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Vector(
-  "de.heikoseeberger" %% "constructr-akka" % "0.11.1",
+  "de.heikoseeberger" %% "constructr-akka" % "0.12.0",
   ...
 )
 ```
@@ -85,7 +85,7 @@ constructr {
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Vector(
-  "de.heikoseeberger" %% "constructr-cassandra" % "0.11.1",
+  "de.heikoseeberger" %% "constructr-cassandra" % "0.12.0",
   ...
 )
 ```
