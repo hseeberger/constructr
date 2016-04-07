@@ -22,6 +22,7 @@ import akka.http.scaladsl.client.RequestBuilding.{ Get, Put }
 import akka.http.scaladsl.model.StatusCodes.{ Created, NotFound, OK, PreconditionFailed }
 import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, ResponseEntity, StatusCode, Uri }
 import akka.http.scaladsl.unmarshalling.Unmarshal
+import akka.event.LoggingAdapter
 import akka.stream.Materializer
 import akka.stream.scaladsl.{ Sink, Source }
 import com.typesafe.config.Config
@@ -43,7 +44,8 @@ final class EtcdCoordination(
   config: Config
 )(implicit
   connection: Coordination.Connection,
-  mat: Materializer)
+  mat: Materializer,
+  log: LoggingAdapter)
     extends Coordination {
   import Coordination._
   import EtcdCoordination._

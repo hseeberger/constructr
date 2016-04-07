@@ -21,6 +21,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{ HttpRequest, HttpResponse }
 import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
+import akka.event.LoggingAdapter
 import com.typesafe.config.Config
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -49,10 +50,11 @@ object Coordination {
     config: Config
   )(implicit
     connection: Coordination.Connection,
-    mat: Materializer): Coordination = Class
+    mat: Materializer,
+    log: LoggingAdapter): Coordination = Class
     .forName(config.getString("constructr.coordination.class-name"))
-    .getConstructor(classOf[String], classOf[String], classOf[Config], classOf[Connection], classOf[Materializer])
-    .newInstance(prefix, clusterName, config, connection, mat).asInstanceOf[Coordination]
+    .getConstructor(classOf[String], classOf[String], classOf[Config], classOf[Connection], classOf[Materializer], classOf[LoggingAdapter])
+    .newInstance(prefix, clusterName, config, connection, mat, log).asInstanceOf[Coordination]
 }
 
 /**

@@ -79,7 +79,7 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
     val coordination = {
       import settings.coordination._
       val connection = Http()(context.system).outgoingConnection(host, port)
-      Coordination("cassandra", settings.clusterName, context.system.settings.config)(connection, ActorMaterializer())
+      Coordination("cassandra", settings.clusterName, context.system.settings.config)(connection, ActorMaterializer(), log)
     }
     context.actorOf(
       ConstructrMachine.props(
