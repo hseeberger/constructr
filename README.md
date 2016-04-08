@@ -130,8 +130,17 @@ ConstructR comes with out-of-the-box support for etcd: simply depend on the "con
 
 ## Testing
 
-Requirements:
-  - etcd needs to be running, e.g. via `docker run -d -p 2379:2379 quay.io/coreos/etcd:v2.2.5 -advertise-client-urls http://192.168.99.100:2379 -listen-client-urls http://0.0.0.0:2379`
+etcd must be running, e.g.:
+
+```
+docker run \
+  --detach \
+  --name etcd \
+  --publish 2379:2379 \
+  quay.io/coreos/etcd:v2.3.1 \
+  --listen-client-urls http://0.0.0.0:2379 \
+  --advertise-client-urls http://192.168.99.100:2379
+```
 
 ## Contribution policy ##
 
