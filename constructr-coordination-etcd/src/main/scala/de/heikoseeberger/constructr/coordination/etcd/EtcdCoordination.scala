@@ -18,13 +18,14 @@ package de.heikoseeberger.constructr.coordination
 package etcd
 
 import akka.Done
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding.{ Get, Put }
 import akka.http.scaladsl.model.StatusCodes.{ Created, NotFound, OK, PreconditionFailed }
 import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, ResponseEntity, StatusCode, Uri }
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.Materializer
-import akka.stream.scaladsl.{ Sink, Source }
-import com.typesafe.config.Config
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.Sink
 import java.util.Base64
 import scala.concurrent.Future
 import scala.concurrent.duration.{ Duration, FiniteDuration }
@@ -37,19 +38,19 @@ object EtcdCoordination {
   private def toSeconds(duration: Duration) = (duration.toSeconds + 1).toString
 }
 
-final class EtcdCoordination(
-  prefix: String,
-  clusterName: String,
-  config: Config
-)(implicit
-  connection: Coordination.Connection,
-  mat: Materializer)
-    extends Coordination {
+final class EtcdCoordination(prefix: String, clusterName: String, system: ActorSystem) extends Coordination {
   import Coordination._
   import EtcdCoordination._
+
+  private implicit val mat = ActorMaterializer()(system)
+
   import mat.executionContext
 
-  private val kvUri = Uri(s"/v2/keys")
+  private val kvUri = {
+    val host = system.settings.config.getString("constructr.coordination.host")
+    val port = system.settings.config.getInt("constructr.coordination.port")
+    Uri(s"http://$host:$port/v2/keys")
+  }
 
   private val baseUri = kvUri.withPath(kvUri.path / "constructr" / prefix / clusterName)
 
@@ -72,7 +73,7 @@ final class EtcdCoordination(
       }
       Unmarshal(entity).to[String].map(toNodes)
     }
-    send(Get(nodesUri)).flatMap {
+    responseFor(Get(nodesUri)).flatMap {
       case HttpResponse(OK, _, entity, _)       => unmarshalNodes(entity)
       case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => Set.empty)
       case HttpResponse(other, _, entity, _)    => ignore(entity).map(_ => throw UnexpectedStatusCode(nodesUri, other))
@@ -90,7 +91,7 @@ final class EtcdCoordination(
         }
         Unmarshal(entity).to[String].map(toLockHolder)
       }
-      send(Get(lockUri)).flatMap {
+      responseFor(Get(lockUri)).flatMap {
         case HttpResponse(OK, _, entity, _)       => unmarshalLockHolder(entity).map(Some(_))
         case HttpResponse(NotFound, _, entity, _) => ignore(entity).map(_ => None)
         case HttpResponse(other, _, entity, _)    => ignore(entity).map(_ => throw UnexpectedStatusCode(nodesUri, other))
@@ -98,7 +99,7 @@ final class EtcdCoordination(
     }
     def writeLock() = {
       val uri = lockUri.withQuery(("prevExist" -> "false") +: ("ttl" -> toSeconds(ttl)) +: Uri.Query(lockUri.rawQueryString))
-      send(Put(uri)).flatMap {
+      responseFor(Put(uri)).flatMap {
         case HttpResponse(Created, _, entity, _)            => ignore(entity).map(_ => true)
         case HttpResponse(PreconditionFailed, _, entity, _) => ignore(entity).map(_ => false)
         case HttpResponse(other, _, entity, _)              => ignore(entity).map(_ => throw UnexpectedStatusCode(lockUri, other))
@@ -106,7 +107,7 @@ final class EtcdCoordination(
     }
     def updateLock(lockHolder: String) = {
       val uri = lockUri.withQuery(("prevValue" -> lockHolder) +: ("ttl" -> toSeconds(ttl)) +: Uri.Query(lockUri.rawQueryString))
-      send(Put(uri)).flatMap {
+      responseFor(Put(uri)).flatMap {
         case HttpResponse(OK, _, entity, _)                 => ignore(entity).map(_ => true)
         case HttpResponse(PreconditionFailed, _, entity, _) => ignore(entity).map(_ => false)
         case HttpResponse(other, _, entity, _)              => ignore(entity).map(_ => throw UnexpectedStatusCode(lockUri, other))
@@ -127,13 +128,13 @@ final class EtcdCoordination(
     val uri = nodesUri
       .withPath(nodesUri.path / Base64.getUrlEncoder.encodeToString(NodeSerialization.toBytes(self)))
       .withQuery(Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString))
-    send(Put(uri)).flatMap {
+    responseFor(Put(uri)).flatMap {
       case HttpResponse(OK | Created, _, entity, _) => ignore(entity).map(_ => Done)
       case HttpResponse(other, _, entity, _)        => ignore(entity).map(_ => throw UnexpectedStatusCode(uri, other))
     }
   }
 
-  private def send(request: HttpRequest) = Source.single(request).via(connection).runWith(Sink.head)
+  private def responseFor(request: HttpRequest) = Http(system).singleRequest(request)
 
   private def ignore(entity: ResponseEntity) = entity.dataBytes.runWith(Sink.ignore)
 }

@@ -75,28 +75,21 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
       context.system.terminate()
   }
 
-  private def createConstructrMachine() = {
-    val coordination = {
-      import settings.coordination._
-      val connection = Http()(context.system).outgoingConnection(host, port)
-      Coordination("cassandra", settings.clusterName, context.system.settings.config)(connection, ActorMaterializer())
-    }
-    context.actorOf(
-      ConstructrMachine.props(
-        settings.selfNode,
-        coordination,
-        settings.coordinationTimeout,
-        settings.nrOfRetries,
-        settings.retryDelay,
-        settings.refreshInterval,
-        settings.ttlFactor,
-        settings.maxNrOfSeedNodes,
-        Duration.Zero,
-        intoJoiningHandler,
-        joiningFunction,
-        outOfJoiningHandler
-      ),
-      ConstructrMachine.Name
-    )
-  }
+  private def createConstructrMachine() = context.actorOf(
+    ConstructrMachine.props(
+      settings.selfNode,
+      Coordination("cassandra", settings.clusterName, context.system),
+      settings.coordinationTimeout,
+      settings.nrOfRetries,
+      settings.retryDelay,
+      settings.refreshInterval,
+      settings.ttlFactor,
+      settings.maxNrOfSeedNodes,
+      Duration.Zero,
+      intoJoiningHandler,
+      joiningFunction,
+      outOfJoiningHandler
+    ),
+    ConstructrMachine.Name
+  )
 }
