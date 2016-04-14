@@ -19,8 +19,6 @@ package de.heikoseeberger.constructr.akka
 import akka.actor.{ Actor, ActorLogging, ActorRef, Address, FSM, Props, SupervisorStrategy, Terminated }
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberExited, MemberJoined, MemberLeft, MemberRemoved, MemberUp }
-import akka.http.scaladsl.Http
-import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
 import de.heikoseeberger.constructr.machine.ConstructrMachine
 
@@ -81,15 +79,10 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
   }
 
   private def createConstructrMachine() = {
-    val coordination = {
-      import settings.coordination._
-      val connection = Http()(context.system).outgoingConnection(host, port)
-      Coordination("akka", context.system.name, context.system.settings.config)(connection, ActorMaterializer())
-    }
     context.actorOf(
       ConstructrMachine.props(
         Cluster(context.system).selfAddress,
-        coordination,
+        Coordination("akka", context.system.name, context.system),
         settings.coordinationTimeout,
         settings.nrOfRetries,
         settings.retryDelay,

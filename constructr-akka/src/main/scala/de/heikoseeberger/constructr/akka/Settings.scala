@@ -25,13 +25,6 @@ object Settings extends ExtensionKey[Settings]
 
 final class Settings private (system: ExtendedActorSystem) extends Extension with ConstructrMachineSettings {
 
-  object coordination {
-
-    val host: String = config.getString("constructr.coordination.host")
-
-    val port: Int = config.getInt("constructr.coordination.port")
-  }
-
   val joinTimeout: FiniteDuration = getDuration("constructr.join-timeout")
 
   override protected def config = system.settings.config

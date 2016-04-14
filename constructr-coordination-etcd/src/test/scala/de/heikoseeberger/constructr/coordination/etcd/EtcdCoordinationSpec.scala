@@ -18,9 +18,8 @@ package de.heikoseeberger.constructr.coordination.etcd
 
 import akka.Done
 import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.stream.ActorMaterializer
 import akka.testkit.TestProbe
+import com.typesafe.config.ConfigFactory
 import de.heikoseeberger.constructr.coordination.Coordination
 import java.nio.charset.StandardCharsets.UTF_8
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
@@ -47,13 +46,14 @@ object EtcdCoordinationSpec {
 class EtcdCoordinationSpec extends WordSpec with Matchers with BeforeAndAfterAll {
   import EtcdCoordinationSpec._
 
-  private implicit val system = ActorSystem()
+  private implicit val system = {
+    val config = ConfigFactory.parseString(s"constructr.coordination.host = $coordinationHost").withFallback(ConfigFactory.load())
+    ActorSystem("default", config)
+  }
 
   "EtcdCoordination" should {
     "correctly interact with etcd" in {
-      implicit val connection = Http(system).outgoingConnection(coordinationHost, 2379)
-      implicit val mat = ActorMaterializer()
-      val coordination = new EtcdCoordination(randomString(), randomString(), system.settings.config): Coordination // Ascription needed for IDEA
+      val coordination = new EtcdCoordination(randomString(), randomString(), system): Coordination // Ascription needed for IDEA
 
       resultOf(coordination.getNodes[String]()) shouldBe 'empty
 

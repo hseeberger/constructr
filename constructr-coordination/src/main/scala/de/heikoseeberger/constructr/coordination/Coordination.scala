@@ -17,17 +17,11 @@
 package de.heikoseeberger.constructr.coordination
 
 import akka.Done
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{ HttpRequest, HttpResponse }
-import akka.stream.Materializer
-import akka.stream.scaladsl.Flow
-import com.typesafe.config.Config
+import akka.actor.ActorSystem
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 object Coordination {
-
-  type Connection = Flow[HttpRequest, HttpResponse, Future[Http.OutgoingConnection]]
 
   object NodeSerialization {
     def fromBytes[A: NodeSerialization](bytes: Array[Byte]): A = implicitly[NodeSerialization[A]].fromBytes(bytes)
@@ -36,6 +30,7 @@ object Coordination {
 
   /**
    * Type class for serializing nodes.
+   *
    * @tparam A node type
    */
   trait NodeSerialization[A] {
@@ -43,27 +38,32 @@ object Coordination {
     def toBytes(n: A): Array[Byte]
   }
 
-  def apply(
-    prefix: String,
-    clusterName: String,
-    config: Config
-  )(implicit
-    connection: Coordination.Connection,
-    mat: Materializer): Coordination = Class
-    .forName(config.getString("constructr.coordination.class-name"))
-    .getConstructor(classOf[String], classOf[String], classOf[Config], classOf[Connection], classOf[Materializer])
-    .newInstance(prefix, clusterName, config, connection, mat).asInstanceOf[Coordination]
+  def apply(prefix: String, clusterName: String, system: ActorSystem): Coordination =
+    try
+      Class
+        .forName(system.settings.config.getString("constructr.coordination.class-name"))
+        .getConstructor(classOf[String], classOf[String], classOf[ActorSystem])
+        .newInstance(prefix, clusterName, system)
+        .asInstanceOf[Coordination]
+    catch {
+      case _: NoSuchMethodException =>
+        throw new Exception(
+          """|A Coordination implementation must provide a constructor with the following signature:
+             |(prefix: String, clusterName: String, system: ActorSystem)""".stripMargin
+        )
+    }
 }
 
 /**
  * Abstraction for a coordination service. Implementations must provide a constructor with the following signature:
- * `(prefix: String, clusterName: String, config: Config)(implicit connection: Coordination.Connection, mat: Materializer)`.
+ * `(prefix: String, clusterName: String, system: ActorSystem)`.
  */
 trait Coordination {
   import Coordination._
 
   /**
    * Get the nodes.
+   *
    * @tparam A node type, must have a [[Coordination.NodeSerialization]]
    * @return future of nodes
    */
@@ -71,6 +71,7 @@ trait Coordination {
 
   /**
    * Akquire a lock for bootstrapping the cluster (first node).
+   *
    * @param self self node
    * @param ttl TTL for the lock
    * @tparam A node type, must have a [[Coordination.NodeSerialization]]
@@ -80,6 +81,7 @@ trait Coordination {
 
   /**
    * Add self to the nodes.
+   *
    * @param self self node
    * @param ttl TTL for the node entry
    * @tparam A node type, must have a [[Coordination.NodeSerialization]]
@@ -89,6 +91,7 @@ trait Coordination {
 
   /**
    * Refresh entry for self.
+   *
    * @param self self node
    * @param ttl TTL for the node entry
    * @tparam A node type, must have a [[Coordination.NodeSerialization]]
