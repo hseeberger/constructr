@@ -44,7 +44,7 @@ If something goes finally wrong when interacting with the coordination service, 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Vector(
-  "de.heikoseeberger" %% "constructr-akka" % "0.13.0",
+  "de.heikoseeberger" %% "constructr-akka" % "0.13.1",
   ...
 )
 ```
@@ -85,7 +85,7 @@ constructr {
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Vector(
-  "de.heikoseeberger" %% "constructr-cassandra" % "0.13.0",
+  "de.heikoseeberger" %% "constructr-cassandra" % "0.13.1",
   ...
 )
 ```
