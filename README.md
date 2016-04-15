@@ -34,7 +34,7 @@ member-joined │
     └───────────────────┘              └───────────────────┘
 ```
 
-If something goes wrong, e.g. a timeout (after configurable retries are exhausted) when interacting with the coordination service, ConstructR by default terminates its `ActorSystem`. At least for constructr-akka this can be changed by providing a custom `SupervisorStrategy` to the manually started `Constructr` actor, but be sure you know what you are doing.
+If something goes finally wrong when interacting with the coordination service, e.g. a permanent timeout after a configurable number of retries, ConstructR terminates its `ActorSystem` in the spirit of "fail fast".
 
 ## ConstructR for Akka
 
