@@ -32,11 +32,11 @@ lazy val constructrCassandra = project
   .copy(id = "constructr-cassandra")
   .in(file("constructr-cassandra"))
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(constructrMachine)
+  .dependsOn(constructrMachine, constructrCoordinationEtcd % "runtime->compile")
 
 name := "constructr-root"
 
-unmanagedSourceDirectories in Compile := Vector.empty
-unmanagedSourceDirectories in Test    := Vector.empty
+unmanagedSourceDirectories.in(Compile) := Vector.empty
+unmanagedSourceDirectories.in(Test)    := Vector.empty
 
 publishArtifact := false
