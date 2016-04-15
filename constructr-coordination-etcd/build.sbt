@@ -2,7 +2,7 @@ name := "constructr-coordination-etcd"
 
 libraryDependencies ++= Vector(
   Library.akkaHttp,
-  Library.raptureJsonSpray,
+  Library.raptureJsonCirce,
   Library.akkaTestkit % "test",
   Library.scalaTest   % "test"
 )
