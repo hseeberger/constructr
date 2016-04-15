@@ -29,7 +29,7 @@ class MultiNodeEtcdConstructrSpecMultiJvmNode5 extends MultiNodeEtcdConstructrSp
 object MultiNodeEtcdConstructrSpec {
   def toNodes(s: String): Set[Address] = {
     import rapture.json._
-    import rapture.json.jsonBackends.spray._
+    import rapture.json.jsonBackends.circe._
     def jsonToNode(json: Json) = {
       val key = json.key.as[String].stripPrefix("/constructr/akka/MultiNodeConstructrSpec/nodes/")
       Coordination.NodeSerialization.fromBytes(Base64.getUrlDecoder.decode(key))

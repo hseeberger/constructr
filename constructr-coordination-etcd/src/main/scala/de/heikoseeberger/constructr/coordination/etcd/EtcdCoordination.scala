@@ -60,7 +60,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, system: ActorS
     def unmarshalNodes(entity: ResponseEntity) = {
       def toNodes(s: String) = {
         import rapture.json._
-        import rapture.json.jsonBackends.spray._
+        import rapture.json.jsonBackends.circe._
         def jsonToNode(json: Json) = {
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
           val key = json.key.as[String].stripPrefix(s"$init/")
@@ -86,7 +86,7 @@ final class EtcdCoordination(prefix: String, clusterName: String, system: ActorS
       def unmarshalLockHolder(entity: ResponseEntity) = {
         def toLockHolder(s: String) = {
           import rapture.json._
-          import rapture.json.jsonBackends.spray._
+          import rapture.json.jsonBackends.circe._
           Json.parse(s).node.value.as[String]
         }
         Unmarshal(entity).to[String].map(toLockHolder)
