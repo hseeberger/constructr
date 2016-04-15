@@ -36,7 +36,7 @@ object Constructr {
 
   private def intoJoiningHandler(machine: ConstructrMachine[InetAddress]) = {
     import machine._
-    self ! Constructr.Nodes(seedNodes(nextStateData.nodes))
+    context.parent ! Constructr.Nodes(seedNodes(nextStateData.nodes))
   }
 
   private def joiningFunction(machine: ConstructrMachine[InetAddress]): ConstructrMachine.StateFunction[InetAddress] = {
