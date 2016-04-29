@@ -10,8 +10,6 @@ libraryDependencies ++= Vector(
 
 initialCommands := """|import de.heikoseeberger.constructr.cassandra._""".stripMargin
 
-publishArtifact := false
-
 assemblyMergeStrategy.in(assembly) := {
   case "LICENSE" => MergeStrategy.concat
   case other     => assemblyMergeStrategy.in(assembly).value(other)
