@@ -10,6 +10,8 @@ services:
 
 before_install:
 - docker pull quay.io/coreos/etcd:v2.3.1
+- docker pull redis:3
 - docker run --detach --publish 2379:2379 quay.io/coreos/etcd:v2.3.1 --listen-client-urls http://0.0.0.0:2379 --advertise-client-urls http://127.0.0.1:2379
+- docker run --detach --publish 6379:6379 -d redis:3
 
 script: sbt test
