@@ -129,10 +129,11 @@ constructr {
 ConstructR comes with out-of-the-box support for etcd: simply depend on the "constructr-coordination-etcd" module. If you want to use some other coordination backend, e.g. Consul, simply implement the `Coordination` trait from the "constructr-coordination" module and make sure to provide the fully qualified class name via the `constructr.coordination.class-name` configuration setting.
 
 ### Community Coordination Implementations
-There are some implementations for other coordination backend than etcd.
 
-* [Tecsisa/constructr-consul](https://github.com/Tecsisa/constructr-consul): This library enables to use Consul as cluster coordinator in a ConstructR based node.
-* [everpeace/constructr-redis](https://github.com/everpeace/constructr-redis): This library enables to use Redis as cluster coordinator in a ConstructR based node.
+There are some implementations for other coordination backends than etcd:
+
+* [Tecsisa/constructr-consul](https://github.com/Tecsisa/constructr-consul): This library enables to use Consul as cluster coordinator in a ConstructR based cluster.
+* [everpeace/constructr-redis](https://github.com/everpeace/constructr-redis): This library enables to use Redis as cluster coordinator in a ConstructR based cluster.
 
 ## Testing
 
