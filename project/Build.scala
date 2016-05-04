@@ -29,6 +29,11 @@ object Build extends AutoPlugin {
                     <name>Heiko Seeberger</name>
                     <url>http://heikoseeberger.de</url>
                   </developer>
+                  <developer>
+                    <id>everpeace</id>
+                    <name>Shingo Omura</name>
+                    <url>https://everpeace.github.io</url>
+                  </developer>
                 </developers>,
     scalaVersion := Version.Scala,
     crossScalaVersions := Vector(scalaVersion.value),

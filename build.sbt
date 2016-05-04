@@ -15,6 +15,11 @@ lazy val constructrCoordinationEtcd = project
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(constructrCoordination)
 
+lazy val constructrCoordinationRedis = project
+  .copy(id = "constructr-coordination-redis")
+  .in(file("constructr-coordination-redis"))
+  .dependsOn(constructrCoordination)
+
 lazy val constructrMachine = project
   .copy(id = "constructr-machine")
   .in(file("constructr-machine"))
@@ -26,7 +31,7 @@ lazy val constructrAkka = project
   .in(file("constructr-akka"))
   .enablePlugins(AutomateHeaderPlugin)
   .configs(MultiJvm)
-  .dependsOn(constructrMachine, constructrCoordinationEtcd % "test->compile")
+  .dependsOn(constructrMachine, constructrCoordinationRedis % "test->compile")
 
 lazy val constructrCassandra = project
   .copy(id = "constructr-cassandra")
