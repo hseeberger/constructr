@@ -144,7 +144,7 @@ docker run \
   --detach \
   --name etcd \
   --publish 2379:2379 \
-  quay.io/coreos/etcd:v2.3.1 \
+  quay.io/coreos/etcd:v2.3.6 \
   --listen-client-urls http://0.0.0.0:2379 \
   --advertise-client-urls http://192.168.99.100:2379
 ```
