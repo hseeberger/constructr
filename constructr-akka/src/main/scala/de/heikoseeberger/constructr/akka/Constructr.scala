@@ -19,6 +19,7 @@ package de.heikoseeberger.constructr.akka
 import akka.actor.{ Actor, ActorLogging, ActorRef, Address, FSM, Props, SupervisorStrategy, Terminated }
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberExited, MemberJoined, MemberLeft, MemberRemoved, MemberUp }
+import akka.cluster.MemberStatus.Up
 import de.heikoseeberger.constructr.coordination.Coordination
 import de.heikoseeberger.constructr.machine.ConstructrMachine
 
@@ -69,9 +70,17 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
   override def receive = Actor.emptyBehavior
 
   private def active(machine: ActorRef): Receive = {
-    case Terminated(`machine`) =>
-      log.error("Terminating the system, because constructr-machine has terminated!")
-      context.system.terminate()
+    case Terminated(`machine`) => {
+      val cluster = Cluster(context.system)
+      val selfAddress = cluster.selfAddress
+      if (cluster.state.members.exists(member => member.address == selfAddress && member.status == Up)) {
+        log.error("Leaving the cluster, because constructr-machine has terminated!")
+        cluster.leave(selfAddress)
+      } else {
+        log.error("Terminating the system, because constructr-machine has terminated!")
+        context.system.terminate()
+      }
+    }
 
     case MemberRemoved(member, _) if member.address == Cluster(context.system).selfAddress =>
       log.error("Terminating the system, because member has been removed!")
