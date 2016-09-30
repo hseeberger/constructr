@@ -24,15 +24,19 @@ import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS }
 
 object Settings extends ExtensionKey[Settings]
 
-final class Settings private (system: ExtendedActorSystem) extends Extension with ConstructrMachineSettings {
+final class Settings private (system: ExtendedActorSystem)
+    extends Extension
+    with ConstructrMachineSettings {
 
   val clusterName: String = config.getString("constructr.cluster-name")
 
-  val seedProviderTimeout: FiniteDuration = getDuration("constructr.seed-provider-timeout")
+  val seedProviderTimeout: FiniteDuration = getDuration(
+    "constructr.seed-provider-timeout")
 
   val selfNode: InetAddress = {
     val selfNode = config.getString("constructr.self-address")
-    if (selfNode.toLowerCase == "auto") InetAddress.getLocalHost else InetAddress.getByName(selfNode)
+    if (selfNode.toLowerCase == "auto") InetAddress.getLocalHost
+    else InetAddress.getByName(selfNode)
   }
 
   override protected def config = system.settings.config

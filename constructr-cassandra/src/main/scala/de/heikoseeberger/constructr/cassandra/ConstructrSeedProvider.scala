@@ -23,7 +23,8 @@ import org.apache.cassandra.locator.SeedProvider
 import scala.collection.JavaConverters.seqAsJavaListConverter
 import scala.concurrent.Await
 
-class ConstructrSeedProvider(params: JMap[String, String]) extends SeedProvider {
+class ConstructrSeedProvider(params: JMap[String, String])
+    extends SeedProvider {
 
   private val system = ActorSystem("constructr-cassandra-system")
 
@@ -39,7 +40,7 @@ class ConstructrSeedProvider(params: JMap[String, String]) extends SeedProvider 
         .map(_.value),
       timeout
     )
-    system.log.info(s"Determined these seed nodes: ${nodes.mkString(", ")}")
+    system.log.info(s"Determined these seed nodes: ${ nodes.mkString(", ") }")
     nodes.toVector.asJava
   }
 }

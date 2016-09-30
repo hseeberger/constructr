@@ -1,5 +1,3 @@
-name := "constructr-coordination-etcd"
-
 libraryDependencies ++= Vector(
   Library.akkaHttp,
   Library.raptureJsonCirce,

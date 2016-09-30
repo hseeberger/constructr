@@ -28,17 +28,23 @@ import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scala.concurrent.duration.{ Duration, DurationInt, FiniteDuration }
 import scala.concurrent.{ Await, Future }
 
-final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockFactory {
+final class ConstructrMachineSpec
+    extends WordSpec
+    with Matchers
+    with BeforeAndAfterAll
+    with MockFactory {
   import ConstructrMachine._
 
   private implicit val system = ActorSystem()
-  private implicit val mat = ActorMaterializer()
+  private implicit val mat    = ActorMaterializer()
   import system.dispatcher
 
-  implicit val stringNodeSerialization = new Coordination.NodeSerialization[String] {
-    override def fromBytes(bytes: Array[Byte]) = new String(bytes, StandardCharsets.UTF_8)
-    override def toBytes(s: String) = s.getBytes(StandardCharsets.UTF_8)
-  }
+  implicit val stringNodeSerialization =
+    new Coordination.NodeSerialization[String] {
+      override def fromBytes(bytes: Array[Byte]) =
+        new String(bytes, StandardCharsets.UTF_8)
+      override def toBytes(s: String) = s.getBytes(StandardCharsets.UTF_8)
+    }
 
   "ConstructrMachine" should {
     "retry the given number of retries and then fail" in {
@@ -46,28 +52,35 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
 
       val coordination = mock[Coordination]
       inSequence {
-        (coordination.getNodes()(_: Coordination.NodeSerialization[String]))
+        (coordination
+          .getNodes()(_: Coordination.NodeSerialization[String]))
           .expects(*)
-          .returns(akkaAfter(1.hour.dilated, system.scheduler)(Future(Set.empty)))
-        (coordination.getNodes()(_: Coordination.NodeSerialization[String]))
+          .returns(
+            akkaAfter(1.hour.dilated, system.scheduler)(Future(Set.empty)))
+        (coordination
+          .getNodes()(_: Coordination.NodeSerialization[String]))
           .expects(*)
           .returns(Future.failed(new Exception("BOOM")))
       }
 
-      val machine = system.actorOf(Props(new ConstructrMachine[String](
-        selfNode = "self",
-        coordination = coordination,
-        coordinationTimeout = 100.millis.dilated,
-        nrOfRetries = 1,
-        retryDelay = 100.millis.dilated,
-        refreshInterval = 1.second.dilated,
-        ttlFactor = 1.5,
-        maxNrOfSeedNodes = 3,
-        joinTimeout = 100.millis.dilated,
-        _ => (),
-        m => { case FSM.Event(FSM.StateTimeout, _) => m.goto(State.AddingSelf) },
-        _ => ()
-      )))
+      val machine = system.actorOf(
+        Props(
+          new ConstructrMachine[String](
+            selfNode = "self",
+            coordination = coordination,
+            coordinationTimeout = 100.millis.dilated,
+            nrOfRetries = 1,
+            retryDelay = 100.millis.dilated,
+            refreshInterval = 1.second.dilated,
+            ttlFactor = 1.5,
+            maxNrOfSeedNodes = 3,
+            joinTimeout = 100.millis.dilated,
+            _ => (),
+            m => {
+              case FSM.Event(FSM.StateTimeout, _) => m.goto(State.AddingSelf)
+            },
+            _ => ()
+          )))
       machine ! FSM.SubscribeTransitionCallBack(monitor.ref)
       monitor.watch(machine)
 
@@ -85,73 +98,105 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
     }
 
     "correctly work down the happy path (including retries)" in {
-      val monitor = TestProbe()
+      val monitor      = TestProbe()
       val coordination = mock[Coordination]
       inSequence {
-        (coordination.getNodes()(_: Coordination.NodeSerialization[String]))
+        (coordination
+          .getNodes()(_: Coordination.NodeSerialization[String]))
           .expects(*)
-          .returns(akkaAfter(1.hour.dilated, system.scheduler)(Future.failed(new Exception("BOOM"))))
-        (coordination.getNodes()(_: Coordination.NodeSerialization[String]))
+          .returns(akkaAfter(1.hour.dilated, system.scheduler)(
+            Future.failed(new Exception("BOOM"))))
+        (coordination
+          .getNodes()(_: Coordination.NodeSerialization[String]))
           .expects(*)
           .returns(Future.failed(new Exception("BOOM")))
-        (coordination.getNodes()(_: Coordination.NodeSerialization[String]))
+        (coordination
+          .getNodes()(_: Coordination.NodeSerialization[String]))
           .expects(*)
           .returns(Future.successful(Set.empty))
 
-        (coordination.lock(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+        (coordination
+          .lock(_: String, _: FiniteDuration)(
+            _: Coordination.NodeSerialization[String]))
           .expects("self", 1650.millis.dilated, *)
-          .returns(akkaAfter(1.hour.dilated, system.scheduler)(Future.failed(new Exception("BOOM"))))
-        (coordination.lock(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+          .returns(akkaAfter(1.hour.dilated, system.scheduler)(
+            Future.failed(new Exception("BOOM"))))
+        (coordination
+          .lock(_: String, _: FiniteDuration)(
+            _: Coordination.NodeSerialization[String]))
           .expects("self", 1650.millis.dilated, *)
           .returns(Future.failed(new Exception("BOOM")))
-        (coordination.lock(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+        (coordination
+          .lock(_: String, _: FiniteDuration)(
+            _: Coordination.NodeSerialization[String]))
           .expects("self", 1650.millis.dilated, *)
           .returns(Future.successful(false))
 
-        (coordination.getNodes()(_: Coordination.NodeSerialization[String]))
+        (coordination
+          .getNodes()(_: Coordination.NodeSerialization[String]))
           .expects(*)
           .returns(Future.successful(Set.empty))
 
-        (coordination.lock(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+        (coordination
+          .lock(_: String, _: FiniteDuration)(
+            _: Coordination.NodeSerialization[String]))
           .expects("self", 1650.millis.dilated, *)
           .returns(Future.successful(true))
 
-        (coordination.addSelf(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+        (coordination
+          .addSelf(_: String, _: FiniteDuration)(
+            _: Coordination.NodeSerialization[String]))
           .expects("self", 1500.millis, *)
-          .returns(akkaAfter(1.hour.dilated, system.scheduler)(Future.failed(new Exception("BOOM"))))
-        (coordination.addSelf(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+          .returns(akkaAfter(1.hour.dilated, system.scheduler)(
+            Future.failed(new Exception("BOOM"))))
+        (coordination
+          .addSelf(_: String, _: FiniteDuration)(
+            _: Coordination.NodeSerialization[String]))
           .expects("self", 1500.millis, *)
           .returns(Future.failed(new Exception("BOOM")))
-        (coordination.addSelf(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+        (coordination
+          .addSelf(_: String, _: FiniteDuration)(
+            _: Coordination.NodeSerialization[String]))
           .expects("self", 1500.millis, *)
           .returns(Future.successful(Done))
 
-        (coordination.refresh(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+        (coordination
+          .refresh(_: String, _: FiniteDuration)(
+            _: Coordination.NodeSerialization[String]))
           .expects("self", 1500.millis, *)
-          .returns(akkaAfter(1.hour.dilated, system.scheduler)(Future.failed(new Exception("BOOM"))))
-        (coordination.refresh(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+          .returns(akkaAfter(1.hour.dilated, system.scheduler)(
+            Future.failed(new Exception("BOOM"))))
+        (coordination
+          .refresh(_: String, _: FiniteDuration)(
+            _: Coordination.NodeSerialization[String]))
           .expects("self", 1500.millis, *)
           .returns(Future.failed(new Exception("BOOM")))
-        (coordination.refresh(_: String, _: FiniteDuration)(_: Coordination.NodeSerialization[String]))
+        (coordination
+          .refresh(_: String, _: FiniteDuration)(
+            _: Coordination.NodeSerialization[String]))
           .expects("self", 1500.millis, *)
           .anyNumberOfTimes
           .returns(Future.successful(Done))
       }
 
-      val machine = system.actorOf(Props(new ConstructrMachine[String](
-        selfNode = "self",
-        coordination = coordination,
-        coordinationTimeout = 100.millis.dilated,
-        nrOfRetries = 2,
-        retryDelay = 100.millis.dilated,
-        refreshInterval = 1.second.dilated,
-        ttlFactor = 1.5,
-        maxNrOfSeedNodes = 3,
-        joinTimeout = 100.millis.dilated,
-        _ => (),
-        m => { case FSM.Event(FSM.StateTimeout, _) => m.goto(State.AddingSelf) },
-        _ => ()
-      )))
+      val machine = system.actorOf(
+        Props(
+          new ConstructrMachine[String](
+            selfNode = "self",
+            coordination = coordination,
+            coordinationTimeout = 100.millis.dilated,
+            nrOfRetries = 2,
+            retryDelay = 100.millis.dilated,
+            refreshInterval = 1.second.dilated,
+            ttlFactor = 1.5,
+            maxNrOfSeedNodes = 3,
+            joinTimeout = 100.millis.dilated,
+            _ => (),
+            m => {
+              case FSM.Event(FSM.StateTimeout, _) => m.goto(State.AddingSelf)
+            },
+            _ => ()
+          )))
       machine ! FSM.SubscribeTransitionCallBack(monitor.ref)
 
       monitor.expectMsgPF(hint = "Current state GettingNodes") {

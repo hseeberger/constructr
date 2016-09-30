@@ -1,40 +1,38 @@
-lazy val construtrRoot = project
-  .copy(id = "constructr-root")
+lazy val constructr = project
   .in(file("."))
   .enablePlugins(GitVersioning)
-  .aggregate(constructrCoordination, constructrCoordinationEtcd, constructrMachine, constructrAkka, constructrCassandra)
+  .aggregate(
+    `constructr-coordination`,
+    `constructr-coordination-etcd`,
+    `constructr-machine`,
+    `constructr-akka`,
+    `constructr-cassandra`
+  )
 
-lazy val constructrCoordination = project
-  .copy(id = "constructr-coordination")
+lazy val `constructr-coordination` = project
   .in(file("constructr-coordination"))
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val constructrCoordinationEtcd = project
-  .copy(id = "constructr-coordination-etcd")
+lazy val `constructr-coordination-etcd` = project
   .in(file("constructr-coordination-etcd"))
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(constructrCoordination)
+  .dependsOn(`constructr-coordination`)
 
-lazy val constructrMachine = project
-  .copy(id = "constructr-machine")
+lazy val `constructr-machine` = project
   .in(file("constructr-machine"))
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(constructrCoordination)
+  .dependsOn(`constructr-coordination`)
 
-lazy val constructrAkka = project
-  .copy(id = "constructr-akka")
+lazy val `constructr-akka` = project
   .in(file("constructr-akka"))
   .enablePlugins(AutomateHeaderPlugin)
   .configs(MultiJvm)
-  .dependsOn(constructrMachine, constructrCoordinationEtcd % "test->compile")
+  .dependsOn(`constructr-machine`, `constructr-coordination-etcd` % "test->compile")
 
-lazy val constructrCassandra = project
-  .copy(id = "constructr-cassandra")
+lazy val `constructr-cassandra` = project
   .in(file("constructr-cassandra"))
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(constructrMachine, constructrCoordinationEtcd % "runtime->compile")
-
-name := "constructr-root"
+  .dependsOn(`constructr-machine`, `constructr-coordination-etcd` % "runtime->compile")
 
 unmanagedSourceDirectories.in(Compile) := Vector.empty
 unmanagedSourceDirectories.in(Test)    := Vector.empty

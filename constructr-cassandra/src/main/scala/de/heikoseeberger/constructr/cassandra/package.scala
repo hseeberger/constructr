@@ -33,8 +33,10 @@ package object cassandra {
   val IndexedSeq = scala.collection.immutable.IndexedSeq
   type IndexedSeq[+A] = scala.collection.immutable.IndexedSeq[A]
 
-  implicit object InetAddressNodeSerialization extends Coordination.NodeSerialization[InetAddress] {
-    override def fromBytes(bytes: Array[Byte]) = InetAddress.getByAddress(bytes)
+  implicit object InetAddressNodeSerialization
+      extends Coordination.NodeSerialization[InetAddress] {
+    override def fromBytes(bytes: Array[Byte]) =
+      InetAddress.getByAddress(bytes)
     override def toBytes(address: InetAddress) = address.getAddress
   }
 }

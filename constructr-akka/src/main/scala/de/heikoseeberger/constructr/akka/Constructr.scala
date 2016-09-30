@@ -16,9 +16,25 @@
 
 package de.heikoseeberger.constructr.akka
 
-import akka.actor.{ Actor, ActorLogging, ActorRef, Address, FSM, Props, SupervisorStrategy, Terminated }
+import akka.actor.{
+  Actor,
+  ActorLogging,
+  ActorRef,
+  Address,
+  FSM,
+  Props,
+  SupervisorStrategy,
+  Terminated
+}
 import akka.cluster.Cluster
-import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberExited, MemberJoined, MemberLeft, MemberRemoved, MemberUp }
+import akka.cluster.ClusterEvent.{
+  InitialStateAsEvents,
+  MemberExited,
+  MemberJoined,
+  MemberLeft,
+  MemberRemoved,
+  MemberUp
+}
 import akka.cluster.MemberStatus.Up
 import de.heikoseeberger.constructr.coordination.Coordination
 import de.heikoseeberger.constructr.machine.ConstructrMachine
@@ -31,19 +47,27 @@ object Constructr {
 
   private def intoJoiningHandler(machine: ConstructrMachine[Address]) = {
     import machine._
-    Cluster(context.system).joinSeedNodes(seedNodes(nextStateData.nodes).toVector) // An existing seed node process would be stopped
-    Cluster(context.system).subscribe(self, InitialStateAsEvents, classOf[MemberJoined], classOf[MemberUp])
+    Cluster(context.system).joinSeedNodes(
+      seedNodes(nextStateData.nodes).toVector) // An existing seed node process would be stopped
+    Cluster(context.system).subscribe(self,
+                                      InitialStateAsEvents,
+                                      classOf[MemberJoined],
+                                      classOf[MemberUp])
   }
 
-  private def joiningFunction(machine: ConstructrMachine[Address]): ConstructrMachine.StateFunction[Address] = {
+  private def joiningFunction(machine: ConstructrMachine[Address])
+    : ConstructrMachine.StateFunction[Address] = {
     import ConstructrMachine._
     import machine._
     {
-      case FSM.Event(MemberJoined(member), _) if member.address == selfNode => goto(State.AddingSelf)
-      case FSM.Event(MemberJoined(member), _)                               => stay()
-      case FSM.Event(MemberUp(member), _) if member.address == selfNode     => goto(State.AddingSelf)
-      case FSM.Event(MemberUp(member), _)                                   => stay()
-      case FSM.Event(StateTimeout, _)                                       => stop(FSM.Failure("Timeout in Joining!"))
+      case FSM.Event(MemberJoined(member), _) if member.address == selfNode =>
+        goto(State.AddingSelf)
+      case FSM.Event(MemberJoined(member), _) => stay()
+      case FSM.Event(MemberUp(member), _) if member.address == selfNode =>
+        goto(State.AddingSelf)
+      case FSM.Event(MemberUp(member), _) => stay()
+      case FSM.Event(StateTimeout, _) =>
+        stop(FSM.Failure("Timeout in Joining!"))
     }
   }
 
@@ -53,14 +77,21 @@ object Constructr {
   }
 }
 
-final class Constructr private extends Actor with ActorLogging with ActorSettings {
+final class Constructr private
+    extends Actor
+    with ActorLogging
+    with ActorSettings {
   import Constructr._
 
   override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
 
   if (Cluster(context.system).settings.SeedNodes.isEmpty) {
     log.info("Creating constructr-machine, because no seed-nodes defined")
-    Cluster(context.system).subscribe(self, InitialStateAsEvents, classOf[MemberLeft], classOf[MemberExited], classOf[MemberRemoved])
+    Cluster(context.system).subscribe(self,
+                                      InitialStateAsEvents,
+                                      classOf[MemberLeft],
+                                      classOf[MemberExited],
+                                      classOf[MemberRemoved])
     context.become(active(context.watch(createConstructrMachine())))
   } else {
     log.info("Stopping self, because seed-nodes defined")
@@ -71,18 +102,22 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
 
   private def active(machine: ActorRef): Receive = {
     case Terminated(`machine`) => {
-      val cluster = Cluster(context.system)
+      val cluster     = Cluster(context.system)
       val selfAddress = cluster.selfAddress
-      if (cluster.state.members.exists(member => member.address == selfAddress && member.status == Up)) {
-        log.error("Leaving the cluster, because constructr-machine has terminated!")
+      if (cluster.state.members.exists(member =>
+            member.address == selfAddress && member.status == Up)) {
+        log.error(
+          "Leaving the cluster, because constructr-machine has terminated!")
         cluster.leave(selfAddress)
       } else {
-        log.error("Terminating the system, because constructr-machine has terminated!")
+        log.error(
+          "Terminating the system, because constructr-machine has terminated!")
         context.system.terminate()
       }
     }
 
-    case MemberRemoved(member, _) if member.address == Cluster(context.system).selfAddress =>
+    case MemberRemoved(member, _)
+        if member.address == Cluster(context.system).selfAddress =>
       log.error("Terminating the system, because member has been removed!")
       context.system.terminate()
   }

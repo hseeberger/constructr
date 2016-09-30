@@ -34,8 +34,10 @@ package object akka {
   val IndexedSeq = scala.collection.immutable.IndexedSeq
   type IndexedSeq[+A] = scala.collection.immutable.IndexedSeq[A]
 
-  implicit object AkkaAddressNodeSerialization extends Coordination.NodeSerialization[Address] {
-    override def fromBytes(bytes: Array[Byte]) = AddressFromURIString(new String(bytes, UTF_8))
+  implicit object AkkaAddressNodeSerialization
+      extends Coordination.NodeSerialization[Address] {
+    override def fromBytes(bytes: Array[Byte]) =
+      AddressFromURIString(new String(bytes, UTF_8))
     override def toBytes(address: Address) = address.toString.getBytes(UTF_8)
   }
 }
