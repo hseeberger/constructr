@@ -24,27 +24,31 @@ import scala.concurrent.duration.FiniteDuration
 object Coordination {
 
   object NodeSerialization {
-    def fromBytes[A: NodeSerialization](bytes: Array[Byte]): A = implicitly[NodeSerialization[A]].fromBytes(bytes)
-    def toBytes[A: NodeSerialization](n: A): Array[Byte] = implicitly[NodeSerialization[A]].toBytes(n)
+    def fromBytes[A: NodeSerialization](bytes: Array[Byte]): A =
+      implicitly[NodeSerialization[A]].fromBytes(bytes)
+    def toBytes[A: NodeSerialization](n: A): Array[Byte] =
+      implicitly[NodeSerialization[A]].toBytes(n)
   }
 
   /**
-   * Type class for serializing nodes.
-   *
-   * @tparam A node type
-   */
+    * Type class for serializing nodes.
+    *
+    * @tparam A node type
+    */
   trait NodeSerialization[A] {
     def fromBytes(bytes: Array[Byte]): A
     def toBytes(n: A): Array[Byte]
   }
 
-  def apply(prefix: String, clusterName: String, system: ActorSystem): Coordination =
-    try
-      Class
-        .forName(system.settings.config.getString("constructr.coordination.class-name"))
-        .getConstructor(classOf[String], classOf[String], classOf[ActorSystem])
-        .newInstance(prefix, clusterName, system)
-        .asInstanceOf[Coordination]
+  def apply(prefix: String,
+            clusterName: String,
+            system: ActorSystem): Coordination =
+    try Class
+      .forName(
+        system.settings.config.getString("constructr.coordination.class-name"))
+      .getConstructor(classOf[String], classOf[String], classOf[ActorSystem])
+      .newInstance(prefix, clusterName, system)
+      .asInstanceOf[Coordination]
     catch {
       case _: NoSuchMethodException =>
         throw new Exception(
@@ -55,47 +59,47 @@ object Coordination {
 }
 
 /**
- * Abstraction for a coordination service. Implementations must provide a constructor with the following signature:
- * `(prefix: String, clusterName: String, system: ActorSystem)`.
- */
+  * Abstraction for a coordination service. Implementations must provide a constructor with the following signature:
+  * `(prefix: String, clusterName: String, system: ActorSystem)`.
+  */
 trait Coordination {
   import Coordination._
 
   /**
-   * Get the nodes.
-   *
-   * @tparam A node type, must have a [[Coordination.NodeSerialization]]
-   * @return future of nodes
-   */
+    * Get the nodes.
+    *
+    * @tparam A node type, must have a [[Coordination.NodeSerialization]]
+    * @return future of nodes
+    */
   def getNodes[A: NodeSerialization](): Future[Set[A]]
 
   /**
-   * Akquire a lock for bootstrapping the cluster (first node).
-   *
-   * @param self self node
-   * @param ttl TTL for the lock
-   * @tparam A node type, must have a [[Coordination.NodeSerialization]]
-   * @return true, if lock could be akquired, else false
-   */
+    * Akquire a lock for bootstrapping the cluster (first node).
+    *
+    * @param self self node
+    * @param ttl TTL for the lock
+    * @tparam A node type, must have a [[Coordination.NodeSerialization]]
+    * @return true, if lock could be akquired, else false
+    */
   def lock[A: NodeSerialization](self: A, ttl: FiniteDuration): Future[Boolean]
 
   /**
-   * Add self to the nodes.
-   *
-   * @param self self node
-   * @param ttl TTL for the node entry
-   * @tparam A node type, must have a [[Coordination.NodeSerialization]]
-   * @return future signaling done
-   */
+    * Add self to the nodes.
+    *
+    * @param self self node
+    * @param ttl TTL for the node entry
+    * @tparam A node type, must have a [[Coordination.NodeSerialization]]
+    * @return future signaling done
+    */
   def addSelf[A: NodeSerialization](self: A, ttl: FiniteDuration): Future[Done]
 
   /**
-   * Refresh entry for self.
-   *
-   * @param self self node
-   * @param ttl TTL for the node entry
-   * @tparam A node type, must have a [[Coordination.NodeSerialization]]
-   * @return future signaling done
-   */
+    * Refresh entry for self.
+    *
+    * @param self self node
+    * @param ttl TTL for the node entry
+    * @tparam A node type, must have a [[Coordination.NodeSerialization]]
+    * @return future signaling done
+    */
   def refresh[A: NodeSerialization](self: A, ttl: FiniteDuration): Future[Done]
 }

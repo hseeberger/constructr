@@ -35,7 +35,9 @@ package object machine {
   implicit class DurationOps(val duration: Duration) extends AnyVal {
     def toFinite: FiniteDuration = duration match {
       case Duration(n, unit) => Duration(n, unit)
-      case _                 => throw new IllegalStateException("Can't convert an infinite duration to a finite one!")
+      case _ =>
+        throw new IllegalStateException(
+          "Can't convert an infinite duration to a finite one!")
     }
   }
 }

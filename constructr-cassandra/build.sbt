@@ -1,5 +1,3 @@
-name := "constructr-cassandra"
-
 libraryDependencies ++= Vector(
   Library.akkaActor,
   Library.akkaSlf4j, // because cassandraAll depends on Logback and hence on SLF4J

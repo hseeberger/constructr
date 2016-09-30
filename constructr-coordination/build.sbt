@@ -1,5 +1,3 @@
-name := "constructr-coordination"
-
 libraryDependencies ++= Vector(
   Library.akkaHttp,
   Library.akkaTestkit % "test",

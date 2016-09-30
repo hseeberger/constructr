@@ -23,7 +23,9 @@ import scala.concurrent.duration.FiniteDuration
 
 object Settings extends ExtensionKey[Settings]
 
-final class Settings private (system: ExtendedActorSystem) extends Extension with ConstructrMachineSettings {
+final class Settings private (system: ExtendedActorSystem)
+    extends Extension
+    with ConstructrMachineSettings {
 
   val joinTimeout: FiniteDuration = getDuration("constructr.join-timeout")
 

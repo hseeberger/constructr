@@ -21,7 +21,8 @@ import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS }
 
 trait ConstructrMachineSettings {
 
-  final val coordinationTimeout: FiniteDuration = getDuration("constructr.coordination-timeout")
+  final val coordinationTimeout: FiniteDuration = getDuration(
+    "constructr.coordination-timeout")
 
   final val maxNrOfSeedNodes: Int = {
     val maxNrOfSeedNodes = config.getInt("constructr.max-nr-of-seed-nodes")
@@ -30,7 +31,8 @@ trait ConstructrMachineSettings {
 
   final val nrOfRetries: Int = config.getInt("constructr.nr-of-retries")
 
-  final val refreshInterval: FiniteDuration = getDuration("constructr.refresh-interval")
+  final val refreshInterval: FiniteDuration = getDuration(
+    "constructr.refresh-interval")
 
   final val retryDelay: FiniteDuration = getDuration("constructr.retry-delay")
 
@@ -38,5 +40,6 @@ trait ConstructrMachineSettings {
 
   protected def config: Config
 
-  protected def getDuration(key: String): FiniteDuration = FiniteDuration(config.getDuration(key).toNanos, NANOSECONDS)
+  protected def getDuration(key: String): FiniteDuration =
+    FiniteDuration(config.getDuration(key).toNanos, NANOSECONDS)
 }

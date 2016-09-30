@@ -16,7 +16,15 @@
 
 package de.heikoseeberger.constructr.cassandra
 
-import akka.actor.{ Actor, ActorLogging, ActorRef, FSM, Props, SupervisorStrategy, Terminated }
+import akka.actor.{
+  Actor,
+  ActorLogging,
+  ActorRef,
+  FSM,
+  Props,
+  SupervisorStrategy,
+  Terminated
+}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
@@ -39,7 +47,8 @@ object Constructr {
     context.parent ! Constructr.Nodes(seedNodes(nextStateData.nodes))
   }
 
-  private def joiningFunction(machine: ConstructrMachine[InetAddress]): ConstructrMachine.StateFunction[InetAddress] = {
+  private def joiningFunction(machine: ConstructrMachine[InetAddress])
+    : ConstructrMachine.StateFunction[InetAddress] = {
     import machine._
     { case FSM.Event(FSM.StateTimeout, _) => goto(State.AddingSelf) }
   }
@@ -47,7 +56,10 @@ object Constructr {
   private def outOfJoiningHandler(machine: ConstructrMachine[InetAddress]) = ()
 }
 
-final class Constructr private extends Actor with ActorLogging with ActorSettings {
+final class Constructr private
+    extends Actor
+    with ActorLogging
+    with ActorSettings {
   import Constructr._
 
   override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
@@ -56,14 +68,15 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
 
   override def receive = waitingForNodes(Set.empty)
 
-  private def waitingForNodes(requesters: Set[ActorRef]): Receive = receiveTerminated.orElse {
-    case GetNodes =>
-      context.become(waitingForNodes(requesters + sender()))
+  private def waitingForNodes(requesters: Set[ActorRef]): Receive =
+    receiveTerminated.orElse {
+      case GetNodes =>
+        context.become(waitingForNodes(requesters + sender()))
 
-    case nodes: Nodes =>
-      requesters.foreach(_ ! nodes)
-      context.become(nodesReceived(nodes))
-  }
+      case nodes: Nodes =>
+        requesters.foreach(_ ! nodes)
+        context.become(nodesReceived(nodes))
+    }
 
   private def nodesReceived(nodes: Nodes): Receive = receiveTerminated.orElse {
     case GetNodes => sender() ! nodes
@@ -71,7 +84,8 @@ final class Constructr private extends Actor with ActorLogging with ActorSetting
 
   private def receiveTerminated: Receive = {
     case Terminated(`machine`) =>
-      log.error("Terminating the system, because constructr-machine has terminated!")
+      log.error(
+        "Terminating the system, because constructr-machine has terminated!")
       context.system.terminate()
   }
 
