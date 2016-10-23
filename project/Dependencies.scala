@@ -1,14 +1,14 @@
 import sbt._
 
 object Version {
-  final val Akka             = "2.4.9"
-  final val AkkaLog4j        = "1.1.3"
+  final val Akka             = "2.4.11"
+  final val AkkaLog4j        = "1.1.5"
   final val Cassandra        = "3.3"
-  final val Log4j            = "2.5"
-  final val RaptureJsonSpray = "2.0.0-M5"
+  final val Log4j            = "2.6.2"
+  final val RaptureJsonSpray = "2.0.0-M7"
   final val Scala            = "2.11.8"
-  final val ScalaMock        = "3.2.2"
-  final val ScalaTest        = "2.2.6"
+  final val ScalaMock        = "3.3.0"
+  final val ScalaTest        = "3.0.0"
 }
 
 object Library {
