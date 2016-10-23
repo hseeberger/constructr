@@ -40,7 +40,7 @@ class ConstructrSeedProvider(params: JMap[String, String])
         .map(_.value),
       timeout
     )
-    system.log.info(s"Determined these seed nodes: ${ nodes.mkString(", ") }")
+    system.log.info(s"Determined these seed nodes: ${nodes.mkString(", ")}")
     nodes.toVector.asJava
   }
 }
