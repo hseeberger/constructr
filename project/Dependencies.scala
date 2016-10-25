@@ -19,7 +19,6 @@ object Library {
   val akkaMultiNodeTestkit = "com.typesafe.akka"        %% "akka-multi-node-testkit"     % Version.Akka
   val akkaSlf4j            = "com.typesafe.akka"        %% "akka-slf4j"                  % Version.Akka
   val akkaTestkit          = "com.typesafe.akka"        %% "akka-testkit"                % Version.Akka
-  val cassandraAll         = "org.apache.cassandra"     %  "cassandra-all"               % Version.Cassandra exclude("commons-logging", "commons-logging")
   val log4jCore            = "org.apache.logging.log4j" %  "log4j-core"                  % Version.Log4j
   val raptureJsonCirce     = "com.propensive"           %% "rapture-json-circe"          % Version.RaptureJsonSpray
   val scalaMock            = "org.scalamock"            %% "scalamock-scalatest-support" % Version.ScalaMock
