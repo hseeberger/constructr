@@ -14,25 +14,19 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger.constructr
+package de.heikoseeberger
 
-import _root_.akka.actor.{ Address, AddressFromURIString }
+import akka.actor.{ Address, AddressFromURIString }
 import de.heikoseeberger.constructr.coordination.Coordination
 import java.nio.charset.StandardCharsets.UTF_8
+import scala.concurrent.duration.{ Duration, FiniteDuration }
 
-package object akka {
+package object constructr {
 
-  val Traversable = scala.collection.immutable.Traversable
   type Traversable[+A] = scala.collection.immutable.Traversable[A]
-
-  val Iterable = scala.collection.immutable.Iterable
-  type Iterable[+A] = scala.collection.immutable.Iterable[A]
-
-  val Seq = scala.collection.immutable.Seq
-  type Seq[+A] = scala.collection.immutable.Seq[A]
-
-  val IndexedSeq = scala.collection.immutable.IndexedSeq
-  type IndexedSeq[+A] = scala.collection.immutable.IndexedSeq[A]
+  type Iterable[+A]    = scala.collection.immutable.Iterable[A]
+  type Seq[+A]         = scala.collection.immutable.Seq[A]
+  type IndexedSeq[+A]  = scala.collection.immutable.IndexedSeq[A]
 
   implicit object AkkaAddressNodeSerialization
       extends Coordination.NodeSerialization[Address] {

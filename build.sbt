@@ -5,7 +5,6 @@ lazy val constructr =
     .aggregate(
       `constructr-coordination`,
       `constructr-coordination-etcd`,
-      `constructr-machine`,
       `constructr-akka`
     )
 

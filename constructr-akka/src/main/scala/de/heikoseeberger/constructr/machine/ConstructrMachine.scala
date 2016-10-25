@@ -21,13 +21,23 @@ import akka.actor.{ FSM, Props, Status }
 import akka.pattern.pipe
 import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object ConstructrMachine {
 
   type StateFunction[A] = PartialFunction[
     FSM.Event[ConstructrMachine.Data[A]],
     FSM.State[ConstructrMachine.State, ConstructrMachine.Data[A]]]
+
+  // TODO: WTF?!
+  implicit class DurationOps(val duration: Duration) extends AnyVal {
+    def toFinite: FiniteDuration = duration match {
+      case Duration(n, unit) => Duration(n, unit)
+      case _ =>
+        throw new IllegalStateException(
+          "Can't convert an infinite duration to a finite one!")
+    }
+  }
 
   sealed trait State
   object State {
