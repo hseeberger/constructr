@@ -5,7 +5,7 @@ lazy val constructr =
     .aggregate(
       `constructr-coordination`,
       `constructr-coordination-etcd`,
-      `constructr-akka`
+      `constructr-machine`
     )
 
 lazy val `constructr-coordination` =
@@ -17,11 +17,14 @@ lazy val `constructr-coordination-etcd` =
     .enablePlugins(AutomateHeaderPlugin)
     .dependsOn(`constructr-coordination`)
 
-lazy val `constructr-akka` =
+lazy val `constructr-machine` =
   project
     .enablePlugins(AutomateHeaderPlugin)
     .configs(MultiJvm)
-    .dependsOn(`constructr-coordination`, `constructr-coordination-etcd` % "test->compile")
+    .dependsOn(
+      `constructr-coordination`,
+      `constructr-coordination-etcd` % "test->compile"
+    )
 
 unmanagedSourceDirectories.in(Compile) := Vector.empty
 unmanagedSourceDirectories.in(Test)    := Vector.empty
