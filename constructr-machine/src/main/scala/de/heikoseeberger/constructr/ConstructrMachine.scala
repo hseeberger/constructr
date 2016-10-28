@@ -17,7 +17,14 @@
 package de.heikoseeberger.constructr
 
 import akka.Done
+import akka.actor.FSM.Failure
 import akka.actor.{ Address, FSM, Props, Status }
+import akka.cluster.Cluster
+import akka.cluster.ClusterEvent.{
+  InitialStateAsEvents,
+  MemberJoined,
+  MemberUp
+}
 import akka.pattern.pipe
 import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
@@ -25,7 +32,7 @@ import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object ConstructrMachine {
 
-  type StateFunction = PartialFunction[FSM.Event[Data], FSM.State[State, Data]]
+//  type StateFunction = PartialFunction[FSM.Event[Data], FSM.State[State, Data]]
 
   implicit class DurationOps(val duration: Duration) extends AnyVal {
     def toFinite: FiniteDuration = duration match {
@@ -64,10 +71,7 @@ object ConstructrMachine {
       refreshInterval: FiniteDuration,
       ttlFactor: Double,
       maxNrOfSeedNodes: Int,
-      joinTimeout: FiniteDuration,
-      intoJoiningHandler: ConstructrMachine => Unit,
-      joiningFunction: ConstructrMachine => StateFunction,
-      outOfJoiningHandler: ConstructrMachine => Unit
+      joinTimeout: FiniteDuration
   ): Props =
     Props(
       new ConstructrMachine(
@@ -79,10 +83,7 @@ object ConstructrMachine {
         refreshInterval,
         ttlFactor,
         maxNrOfSeedNodes,
-        joinTimeout,
-        intoJoiningHandler,
-        joiningFunction,
-        outOfJoiningHandler
+        joinTimeout
       )
     )
 }
@@ -96,10 +97,7 @@ final class ConstructrMachine(
     refreshInterval: FiniteDuration,
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
-    joinTimeout: FiniteDuration,
-    intoJoiningHandler: ConstructrMachine => Unit,
-    joiningFunction: ConstructrMachine => ConstructrMachine.StateFunction,
-    outOfJoiningHandler: ConstructrMachine => Unit
+    joinTimeout: FiniteDuration
 ) extends FSM[ConstructrMachine.State, ConstructrMachine.Data] {
   import ConstructrMachine._
   import context.dispatcher
@@ -112,6 +110,7 @@ final class ConstructrMachine(
   )
 
   private implicit val mat = ActorMaterializer()
+  private val cluster      = Cluster(context.system)
 
   startWith(State.GettingNodes,
             Data(Set.empty, State.GettingNodes, nrOfRetries))
@@ -180,19 +179,35 @@ final class ConstructrMachine(
   onTransition {
     case _ -> State.Joining =>
       log.debug("Transitioning to Joining")
-      intoJoiningHandler(this)
+      cluster.joinSeedNodes(seedNodes(nextStateData.nodes)) // An existing seed node process would be stopped
+      Cluster(context.system).subscribe(self,
+                                        InitialStateAsEvents,
+                                        classOf[MemberJoined],
+                                        classOf[MemberUp])
+
   }
 
-  when(State.Joining, joinTimeout)(joiningFunction(this))
+  when(State.Joining, joinTimeout) {
+    case Event(MemberJoined(member), _) if member.address == selfNode =>
+      goto(State.AddingSelf)
+    case Event(MemberJoined(member), _) =>
+      stay()
+    case Event(MemberUp(member), _) if member.address == selfNode =>
+      goto(State.AddingSelf)
+    case Event(MemberUp(member), _) =>
+      stay()
+    case Event(StateTimeout, _) =>
+      stop(Failure("Timeout in Joining!"))
+  }
 
   onTransition {
     case State.Joining -> _ =>
       log.debug("Transitioning out of Joining")
-      outOfJoiningHandler(this)
+      cluster.unsubscribe(self)
   }
 
-  def seedNodes(nodes: Set[Address]): Set[Address] =
-    nodes.take(maxNrOfSeedNodes)
+  private def seedNodes(nodes: Set[Address]) =
+    nodes.take(maxNrOfSeedNodes).toVector
 
   // AddingSelf
 

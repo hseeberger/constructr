@@ -17,7 +17,8 @@
 package de.heikoseeberger.constructr
 
 import akka.Done
-import akka.actor.{ ActorSystem, AddressFromURIString, FSM, Props }
+import akka.actor.{ ActorSystem, FSM, Props }
+import akka.cluster.Cluster
 import akka.pattern.{ after => akkaAfter }
 import akka.stream.ActorMaterializer
 import akka.testkit.{ TestDuration, TestProbe }
@@ -38,7 +39,7 @@ final class ConstructrMachineSpec
   private implicit val mat    = ActorMaterializer()
   import system.dispatcher
 
-  private val address = AddressFromURIString("akka.tcp://default@a:2552")
+  private val address = Cluster(system).selfAddress
 
   "ConstructrMachine" should {
     "retry the given number of retries and then fail" in {
@@ -67,12 +68,7 @@ final class ConstructrMachineSpec
             refreshInterval = 1.second.dilated,
             ttlFactor = 1.5,
             maxNrOfSeedNodes = 3,
-            joinTimeout = 100.millis.dilated,
-            _ => (),
-            m => {
-              case FSM.Event(FSM.StateTimeout, _) => m.goto(State.AddingSelf)
-            },
-            _ => ()
+            joinTimeout = 100.millis.dilated
           )
         )
       )
@@ -167,13 +163,10 @@ final class ConstructrMachineSpec
             refreshInterval = 1.second.dilated,
             ttlFactor = 1.5,
             maxNrOfSeedNodes = 3,
-            joinTimeout = 100.millis.dilated,
-            _ => (),
-            m => {
-              case FSM.Event(FSM.StateTimeout, _) => m.goto(State.AddingSelf)
-            },
-            _ => ()
-          )))
+            joinTimeout = 100.millis.dilated
+          )
+        )
+      )
       machine ! FSM.SubscribeTransitionCallBack(monitor.ref)
 
       monitor.expectMsgPF(hint = "Current state GettingNodes") {
