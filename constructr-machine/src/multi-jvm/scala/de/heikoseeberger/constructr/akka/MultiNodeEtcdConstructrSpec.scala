@@ -16,8 +16,7 @@
 
 package de.heikoseeberger.constructr.akka
 
-import akka.actor.Address
-import de.heikoseeberger.constructr.coordination.Coordination
+import akka.actor.{Address, AddressFromURIString}
 import java.util.Base64
 
 class MultiNodeEtcdConstructrSpecMultiJvmNode1 extends MultiNodeEtcdConstructrSpec
@@ -32,7 +31,7 @@ object MultiNodeEtcdConstructrSpec {
     import rapture.json.jsonBackends.circe._
     def jsonToNode(json: Json) = {
       val key = json.key.as[String].stripPrefix("/constructr/akka/MultiNodeConstructrSpec/nodes/")
-      Coordination.NodeSerialization.fromBytes(Base64.getUrlDecoder.decode(key))
+      AddressFromURIString(new String(Base64.getUrlDecoder.decode(key)))
     }
     Json.parse(s).node match {
       case json"""{ "nodes": $nodes }""" => nodes.as[Set[Json]].map(jsonToNode)

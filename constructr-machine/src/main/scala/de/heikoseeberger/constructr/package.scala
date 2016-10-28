@@ -16,22 +16,10 @@
 
 package de.heikoseeberger
 
-import akka.actor.{ Address, AddressFromURIString }
-import de.heikoseeberger.constructr.coordination.Coordination
-import java.nio.charset.StandardCharsets.UTF_8
-import scala.concurrent.duration.{ Duration, FiniteDuration }
-
 package object constructr {
 
   type Traversable[+A] = scala.collection.immutable.Traversable[A]
   type Iterable[+A]    = scala.collection.immutable.Iterable[A]
   type Seq[+A]         = scala.collection.immutable.Seq[A]
   type IndexedSeq[+A]  = scala.collection.immutable.IndexedSeq[A]
-
-  implicit object AkkaAddressNodeSerialization
-      extends Coordination.NodeSerialization[Address] {
-    override def fromBytes(bytes: Array[Byte]) =
-      AddressFromURIString(new String(bytes, UTF_8))
-    override def toBytes(address: Address) = address.toString.getBytes(UTF_8)
-  }
 }

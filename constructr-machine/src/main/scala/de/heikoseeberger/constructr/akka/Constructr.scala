@@ -20,7 +20,6 @@ import akka.actor.{
   Actor,
   ActorLogging,
   ActorRef,
-  Address,
   FSM,
   Props,
   SupervisorStrategy,
@@ -45,7 +44,7 @@ object Constructr {
 
   def props: Props = Props(new Constructr)
 
-  private def intoJoiningHandler(machine: ConstructrMachine[Address]) = {
+  private def intoJoiningHandler(machine: ConstructrMachine) = {
     import machine._
     Cluster(context.system).joinSeedNodes(
       seedNodes(nextStateData.nodes).toVector) // An existing seed node process would be stopped
@@ -55,8 +54,8 @@ object Constructr {
                                       classOf[MemberUp])
   }
 
-  private def joiningFunction(machine: ConstructrMachine[Address])
-    : ConstructrMachine.StateFunction[Address] = {
+  private def joiningFunction(
+      machine: ConstructrMachine): ConstructrMachine.StateFunction = {
     import ConstructrMachine._
     import machine._
     {
@@ -71,7 +70,7 @@ object Constructr {
     }
   }
 
-  private def outOfJoiningHandler(machine: ConstructrMachine[Address]) = {
+  private def outOfJoiningHandler(machine: ConstructrMachine) = {
     import machine._
     Cluster(context.system).unsubscribe(self)
   }
@@ -101,7 +100,7 @@ final class Constructr private
   override def receive = Actor.emptyBehavior
 
   private def active(machine: ActorRef): Receive = {
-    case Terminated(`machine`) => {
+    case Terminated(`machine`) =>
       val cluster     = Cluster(context.system)
       val selfAddress = cluster.selfAddress
       if (cluster.state.members.exists(member =>
@@ -114,7 +113,6 @@ final class Constructr private
           "Terminating the system, because constructr-machine has terminated!")
         context.system.terminate()
       }
-    }
 
     case MemberRemoved(member, _)
         if member.address == Cluster(context.system).selfAddress =>

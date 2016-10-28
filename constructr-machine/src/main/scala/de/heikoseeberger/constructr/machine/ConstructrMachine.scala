@@ -17,7 +17,7 @@
 package de.heikoseeberger.constructr.machine
 
 import akka.Done
-import akka.actor.{ FSM, Props, Status }
+import akka.actor.{ Address, FSM, Props, Status }
 import akka.pattern.pipe
 import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
@@ -25,9 +25,7 @@ import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object ConstructrMachine {
 
-  type StateFunction[A] = PartialFunction[
-    FSM.Event[ConstructrMachine.Data[A]],
-    FSM.State[ConstructrMachine.State, ConstructrMachine.Data[A]]]
+  type StateFunction = PartialFunction[FSM.Event[Data], FSM.State[State, Data]]
 
   // TODO: WTF?!
   implicit class DurationOps(val duration: Duration) extends AnyVal {
@@ -50,15 +48,15 @@ object ConstructrMachine {
     case object RetryScheduled   extends State
   }
 
-  case class Data[A](nodes: Set[A], retryState: State, nrOfRetriesLeft: Int)
+  case class Data(nodes: Set[Address], retryState: State, nrOfRetriesLeft: Int)
 
   final case class StateTimeoutException(state: State)
       extends RuntimeException(s"State timeout triggered in state $state!")
 
   final val Name = "constructr-machine"
 
-  def props[A: Coordination.NodeSerialization](
-      selfNode: A,
+  def props(
+      selfNode: Address,
       coordination: Coordination,
       coordinationTimeout: FiniteDuration,
       coordinationRetries: Int,
@@ -67,12 +65,12 @@ object ConstructrMachine {
       ttlFactor: Double,
       maxNrOfSeedNodes: Int,
       joinTimeout: FiniteDuration,
-      intoJoiningHandler: ConstructrMachine[A] => Unit,
-      joiningFunction: ConstructrMachine[A] => StateFunction[A],
-      outOfJoiningHandler: ConstructrMachine[A] => Unit
+      intoJoiningHandler: ConstructrMachine => Unit,
+      joiningFunction: ConstructrMachine => StateFunction,
+      outOfJoiningHandler: ConstructrMachine => Unit
   ): Props =
     Props(
-      new ConstructrMachine[A](
+      new ConstructrMachine(
         selfNode,
         coordination,
         coordinationTimeout,
@@ -88,8 +86,8 @@ object ConstructrMachine {
       ))
 }
 
-final class ConstructrMachine[A: Coordination.NodeSerialization](
-    val selfNode: A,
+final class ConstructrMachine(
+    val selfNode: Address,
     coordination: Coordination,
     coordinationTimeout: FiniteDuration,
     nrOfRetries: Int,
@@ -98,11 +96,10 @@ final class ConstructrMachine[A: Coordination.NodeSerialization](
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
     joinTimeout: FiniteDuration,
-    intoJoiningHandler: ConstructrMachine[A] => Unit,
-    joiningFunction: ConstructrMachine[A] => ConstructrMachine.StateFunction[
-      A],
-    outOfJoiningHandler: ConstructrMachine[A] => Unit
-) extends FSM[ConstructrMachine.State, ConstructrMachine.Data[A]] {
+    intoJoiningHandler: ConstructrMachine => Unit,
+    joiningFunction: ConstructrMachine => ConstructrMachine.StateFunction,
+    outOfJoiningHandler: ConstructrMachine => Unit
+) extends FSM[ConstructrMachine.State, ConstructrMachine.Data] {
   import ConstructrMachine._
   import context.dispatcher
 
@@ -127,11 +124,11 @@ final class ConstructrMachine[A: Coordination.NodeSerialization](
   }
 
   when(State.GettingNodes, coordinationTimeout) {
-    case Event(nodes: Set[A] @unchecked, _) if nodes.isEmpty =>
+    case Event(nodes: Set[Address] @unchecked, _) if nodes.isEmpty =>
       log.debug("Received empty nodes, going to Locking")
       goto(State.Locking).using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
 
-    case Event(nodes: Set[A] @unchecked, _) =>
+    case Event(nodes: Set[Address] @unchecked, _) =>
       log.debug(s"Received nodes $nodes, going to Joining")
       goto(State.Joining)
         .using(stateData.copy(nodes = nodes, nrOfRetriesLeft = nrOfRetries))
@@ -193,7 +190,8 @@ final class ConstructrMachine[A: Coordination.NodeSerialization](
       outOfJoiningHandler(this)
   }
 
-  def seedNodes(nodes: Set[A]): Set[A] = nodes.take(maxNrOfSeedNodes)
+  def seedNodes(nodes: Set[Address]): Set[Address] =
+    nodes.take(maxNrOfSeedNodes)
 
   // AddingSelf
 

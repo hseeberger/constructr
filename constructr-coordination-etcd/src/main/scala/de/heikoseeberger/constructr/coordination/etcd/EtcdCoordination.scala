@@ -18,7 +18,7 @@ package de.heikoseeberger.constructr.coordination
 package etcd
 
 import akka.Done
-import akka.actor.ActorSystem
+import akka.actor.{ ActorSystem, Address, AddressFromURIString }
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding.{ Get, Put }
 import akka.http.scaladsl.model.StatusCodes.{
@@ -37,6 +37,7 @@ import akka.http.scaladsl.model.{
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
+import java.nio.charset.StandardCharsets.UTF_8
 import java.util.Base64
 import scala.concurrent.Future
 import scala.concurrent.duration.{ Duration, FiniteDuration }
@@ -54,7 +55,6 @@ final class EtcdCoordination(prefix: String,
                              clusterName: String,
                              system: ActorSystem)
     extends Coordination {
-  import Coordination._
   import EtcdCoordination._
 
   private implicit val mat = ActorMaterializer()(system)
@@ -72,7 +72,7 @@ final class EtcdCoordination(prefix: String,
 
   private val nodesUri = baseUri.withPath(baseUri.path / "nodes")
 
-  override def getNodes[A: NodeSerialization]() = {
+  override def getNodes() = {
     def unmarshalNodes(entity: ResponseEntity) = {
       def toNodes(s: String) = {
         import rapture.json._
@@ -80,26 +80,27 @@ final class EtcdCoordination(prefix: String,
         def jsonToNode(json: Json) = {
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
           val key  = json.key.as[String].stripPrefix(s"$init/")
-          NodeSerialization.fromBytes(Base64.getUrlDecoder.decode(key))
+          val uri  = new String(Base64.getUrlDecoder.decode(key), UTF_8)
+          AddressFromURIString(uri)
         }
         Json.parse(s).node match {
           case json"""{ "nodes": $nodes }""" =>
             nodes.as[Set[Json]].map(jsonToNode)
-          case _ => Set.empty[A]
+          case _ =>
+            Set.empty[Address]
         }
       }
       Unmarshal(entity).to[String].map(toNodes)
     }
     responseFor(Get(nodesUri)).flatMap {
-      case HttpResponse(OK, _, entity, _) => unmarshalNodes(entity)
-      case HttpResponse(NotFound, _, entity, _) =>
-        ignore(entity).map(_ => Set.empty)
-      case HttpResponse(other, _, entity, _) =>
-        ignore(entity).map(_ => throw UnexpectedStatusCode(nodesUri, other))
+      case HttpResponse(OK, _, entity, _)  => unmarshalNodes(entity)
+      case HttpResponse(NotFound, _, e, _) => ignore(e).map(_ => Set.empty)
+      case HttpResponse(o, _, e, _) =>
+        ignore(e).map(_ => throw UnexpectedStatusCode(nodesUri, o))
     }
   }
 
-  override def lock[A: NodeSerialization](self: A, ttl: FiniteDuration) = {
+  override def lock(self: Address, ttl: FiniteDuration) = {
     val lockUri = baseUri
       .withPath(baseUri.path / "lock")
       .withQuery(Uri.Query("value" -> self.toString))
@@ -154,19 +155,21 @@ final class EtcdCoordination(prefix: String,
     }
   }
 
-  override def addSelf[A: NodeSerialization](self: A, ttl: FiniteDuration) =
+  override def addSelf(self: Address, ttl: FiniteDuration) =
     addSelfOrRefresh(self, ttl)
 
-  override def refresh[A: NodeSerialization](self: A, ttl: FiniteDuration) =
+  override def refresh(self: Address, ttl: FiniteDuration) =
     addSelfOrRefresh(self, ttl)
 
-  private def addSelfOrRefresh[A: NodeSerialization](self: A,
-                                                     ttl: FiniteDuration) = {
-    val uri = nodesUri
-      .withPath(
-        nodesUri.path / Base64.getUrlEncoder.encodeToString(
-          NodeSerialization.toBytes(self)))
-      .withQuery(Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString))
+  private def addSelfOrRefresh(self: Address, ttl: FiniteDuration) = {
+    val uri =
+      nodesUri
+        .withPath(
+          nodesUri.path / Base64.getUrlEncoder.encodeToString(
+            self.toString.getBytes(UTF_8))
+        )
+        .withQuery(
+          Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString))
     responseFor(Put(uri)).flatMap {
       case HttpResponse(OK | Created, _, entity, _) =>
         ignore(entity).map(_ => Done)

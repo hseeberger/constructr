@@ -1,4 +1,4 @@
-addSbtPlugin("com.geirsson"      % "sbt-scalafmt"  % "0.4.7")
+addSbtPlugin("com.geirsson"      % "sbt-scalafmt"  % "0.4.8")
 addSbtPlugin("com.jsuereth"      % "sbt-pgp"       % "1.0.0")
 addSbtPlugin("com.typesafe.sbt"  % "sbt-git"       % "0.8.5")
 addSbtPlugin("com.typesafe.sbt"  % "sbt-multi-jvm" % "0.3.11")

@@ -17,24 +17,16 @@
 package de.heikoseeberger.constructr.coordination.etcd
 
 import akka.Done
-import akka.actor.ActorSystem
+import akka.actor.{ ActorSystem, AddressFromURIString }
 import akka.testkit.TestProbe
 import com.typesafe.config.ConfigFactory
 import de.heikoseeberger.constructr.coordination.Coordination
-import java.nio.charset.StandardCharsets.UTF_8
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scala.concurrent.duration.{ Duration, DurationInt, FiniteDuration }
 import scala.concurrent.{ Await, Awaitable }
 import scala.util.Random
 
 object EtcdCoordinationSpec {
-  import Coordination._
-
-  private implicit val stringNodeSerialization =
-    new NodeSerialization[String] {
-      override def fromBytes(bytes: Array[Byte]) = new String(bytes, UTF_8)
-      override def toBytes(s: String)            = s.getBytes(UTF_8)
-    }
 
   private val coordinationHost = {
     val dockerHostPattern = """tcp://(\S+):\d{1,5}""".r
@@ -58,6 +50,8 @@ class EtcdCoordinationSpec
     ActorSystem("default", config)
   }
 
+  private val address = AddressFromURIString("akka.tcp://default@a:2552")
+
   "EtcdCoordination" should {
     "correctly interact with etcd" in {
       val coordination = new EtcdCoordination(
@@ -65,23 +59,25 @@ class EtcdCoordinationSpec
         randomString(),
         system): Coordination // Ascription needed for IDEA
 
-      resultOf(coordination.getNodes[String]()) shouldBe 'empty
+      resultOf(coordination.getNodes()) shouldBe 'empty
 
-      resultOf(coordination.lock[String]("self", 10.seconds)) shouldBe true
-      resultOf(coordination.lock[String]("self", 10.seconds)) shouldBe true
-      resultOf(coordination.lock[String]("other", 10.seconds)) shouldBe false
+      resultOf(coordination.lock(address, 10.seconds)) shouldBe true
+      resultOf(coordination.lock(address, 10.seconds)) shouldBe true
+      resultOf(
+        coordination.lock(AddressFromURIString("akka.tcp://default@b:2552"),
+                          10.seconds)) shouldBe false
 
-      resultOf(coordination.addSelf[String]("self", 10.seconds)) shouldBe Done
-      resultOf(coordination.getNodes[String]()) shouldBe Set("self")
+      resultOf(coordination.addSelf(address, 10.seconds)) shouldBe Done
+      resultOf(coordination.getNodes()) shouldBe Set(address)
 
-      resultOf(coordination.refresh[String]("self", 1.second)) shouldBe Done
-      resultOf(coordination.getNodes[String]()) shouldBe Set("self")
+      resultOf(coordination.refresh(address, 1.second)) shouldBe Done
+      resultOf(coordination.getNodes()) shouldBe Set(address)
 
       val probe = TestProbe()
       import probe._
       within(5.seconds) { // 2 seconds should be enough, but who knows hows ...
         awaitAssert {
-          resultOf(coordination.getNodes[String]()) shouldBe 'empty
+          resultOf(coordination.getNodes()) shouldBe 'empty
         }
       }
     }

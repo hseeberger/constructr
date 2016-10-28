@@ -1,7 +1,5 @@
 libraryDependencies ++= Vector(
-  Library.akkaHttp,
-  Library.akkaTestkit % "test",
-  Library.scalaTest   % "test"
+  Library.akkaActor
 )
 
 initialCommands := """|import de.heikoseeberger.constructr.coordination._""".stripMargin
