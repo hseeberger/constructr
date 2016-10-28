@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger.constructr.machine
+package de.heikoseeberger.constructr
 
 import akka.Done
 import akka.actor.{ ActorSystem, AddressFromURIString, FSM, Props }

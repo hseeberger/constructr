@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger.constructr.akka
+package de.heikoseeberger.constructr
 
 import akka.actor.{Address, AddressFromURIString}
 import java.util.Base64

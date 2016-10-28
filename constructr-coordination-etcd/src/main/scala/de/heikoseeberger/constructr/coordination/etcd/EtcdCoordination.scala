@@ -46,7 +46,8 @@ object EtcdCoordination {
 
   final case class UnexpectedStatusCode(uri: Uri, statusCode: StatusCode)
       extends RuntimeException(
-        s"Unexpected status code $statusCode for URI $uri")
+        s"Unexpected status code $statusCode for URI $uri"
+      )
 
   private def toSeconds(duration: Duration) = (duration.toSeconds + 1).toString
 }
@@ -93,10 +94,12 @@ final class EtcdCoordination(prefix: String,
       Unmarshal(entity).to[String].map(toNodes)
     }
     responseFor(Get(nodesUri)).flatMap {
-      case HttpResponse(OK, _, entity, _)  => unmarshalNodes(entity)
-      case HttpResponse(NotFound, _, e, _) => ignore(e).map(_ => Set.empty)
-      case HttpResponse(o, _, e, _) =>
-        ignore(e).map(_ => throw UnexpectedStatusCode(nodesUri, o))
+      case HttpResponse(OK, _, entity, _) =>
+        unmarshalNodes(entity)
+      case HttpResponse(NotFound, _, entity, _) =>
+        ignore(entity).map(_ => Set.empty)
+      case HttpResponse(other, _, entity, _) =>
+        ignore(entity).map(_ => throw UnexpectedStatusCode(nodesUri, other))
     }
   }
 
@@ -140,7 +143,8 @@ final class EtcdCoordination(prefix: String,
         ("prevValue" -> lockHolder) +: ("ttl" -> toSeconds(ttl)) +: Uri.Query(
           lockUri.rawQueryString))
       responseFor(Put(uri)).flatMap {
-        case HttpResponse(OK, _, entity, _) => ignore(entity).map(_ => true)
+        case HttpResponse(OK, _, entity, _) =>
+          ignore(entity).map(_ => true)
         case HttpResponse(PreconditionFailed, _, entity, _) =>
           ignore(entity).map(_ => false)
         case HttpResponse(other, _, entity, _) =>
@@ -148,10 +152,9 @@ final class EtcdCoordination(prefix: String,
       }
     }
     readLock().flatMap {
-      case Some(lockHolder) if lockHolder == self.toString =>
-        updateLock(lockHolder)
-      case Some(_) => Future.successful(false)
-      case None    => writeLock()
+      case Some(h) if h == self.toString => updateLock(h)
+      case Some(_)                       => Future.successful(false)
+      case None                          => writeLock()
     }
   }
 
@@ -166,10 +169,12 @@ final class EtcdCoordination(prefix: String,
       nodesUri
         .withPath(
           nodesUri.path / Base64.getUrlEncoder.encodeToString(
-            self.toString.getBytes(UTF_8))
+            self.toString.getBytes(UTF_8)
+          )
         )
         .withQuery(
-          Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString))
+          Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString)
+        )
     responseFor(Put(uri)).flatMap {
       case HttpResponse(OK | Created, _, entity, _) =>
         ignore(entity).map(_ => Done)

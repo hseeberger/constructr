@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger.constructr.machine
+package de.heikoseeberger.constructr
 
 import akka.Done
 import akka.actor.{ Address, FSM, Props, Status }
@@ -27,10 +27,10 @@ object ConstructrMachine {
 
   type StateFunction = PartialFunction[FSM.Event[Data], FSM.State[State, Data]]
 
-  // TODO: WTF?!
   implicit class DurationOps(val duration: Duration) extends AnyVal {
     def toFinite: FiniteDuration = duration match {
-      case Duration(n, unit) => Duration(n, unit)
+      case Duration(n, unit) =>
+        Duration(n, unit)
       case _ =>
         throw new IllegalStateException(
           "Can't convert an infinite duration to a finite one!")
@@ -83,7 +83,8 @@ object ConstructrMachine {
         intoJoiningHandler,
         joiningFunction,
         outOfJoiningHandler
-      ))
+      )
+    )
 }
 
 final class ConstructrMachine(
@@ -283,7 +284,8 @@ final class ConstructrMachine(
     else
       goto(State.RetryScheduled).using(
         stateData.copy(retryState = retryState,
-                       nrOfRetriesLeft = stateData.nrOfRetriesLeft - 1))
+                       nrOfRetriesLeft = stateData.nrOfRetriesLeft - 1)
+      )
 
   private def maxCoordinationTimeout =
     coordinationTimeout * (1 + nrOfRetries) + retryDelay * nrOfRetries

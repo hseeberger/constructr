@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger.constructr.akka
+package de.heikoseeberger.constructr
 
 import akka.actor.{
   Actor,
@@ -36,7 +36,6 @@ import akka.cluster.ClusterEvent.{
 }
 import akka.cluster.MemberStatus.Up
 import de.heikoseeberger.constructr.coordination.Coordination
-import de.heikoseeberger.constructr.machine.ConstructrMachine
 
 object Constructr {
 
