@@ -16,21 +16,28 @@
 
 package de.heikoseeberger.constructr
 
-import akka.actor.{Address, AddressFromURIString}
+import akka.actor.{ Address, AddressFromURIString }
 import java.util.Base64
 
-class MultiNodeEtcdConstructrSpecMultiJvmNode1 extends MultiNodeEtcdConstructrSpec
-class MultiNodeEtcdConstructrSpecMultiJvmNode2 extends MultiNodeEtcdConstructrSpec
-class MultiNodeEtcdConstructrSpecMultiJvmNode3 extends MultiNodeEtcdConstructrSpec
-class MultiNodeEtcdConstructrSpecMultiJvmNode4 extends MultiNodeEtcdConstructrSpec
-class MultiNodeEtcdConstructrSpecMultiJvmNode5 extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode1
+    extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode2
+    extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode3
+    extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode4
+    extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode5
+    extends MultiNodeEtcdConstructrSpec
 
 object MultiNodeEtcdConstructrSpec {
   def toNodes(s: String): Set[Address] = {
     import rapture.json._
     import rapture.json.jsonBackends.circe._
     def jsonToNode(json: Json) = {
-      val key = json.key.as[String].stripPrefix("/constructr/akka/MultiNodeConstructrSpec/nodes/")
+      val key = json.key
+        .as[String]
+        .stripPrefix("/constructr/akka/MultiNodeConstructrSpec/nodes/")
       AddressFromURIString(new String(Base64.getUrlDecoder.decode(key)))
     }
     Json.parse(s).node match {
@@ -40,9 +47,10 @@ object MultiNodeEtcdConstructrSpec {
   }
 }
 
-abstract class MultiNodeEtcdConstructrSpec extends MultiNodeConstructrSpec(
-  2379,
-  "/v2/keys/constructr/akka?recursive=true",
-  "/v2/keys/constructr/akka/MultiNodeConstructrSpec/nodes",
-  MultiNodeEtcdConstructrSpec.toNodes
-)
+abstract class MultiNodeEtcdConstructrSpec
+    extends MultiNodeConstructrSpec(
+      2379,
+      "/v2/keys/constructr/akka?recursive=true",
+      "/v2/keys/constructr/akka/MultiNodeConstructrSpec/nodes",
+      MultiNodeEtcdConstructrSpec.toNodes
+    )

@@ -96,7 +96,8 @@ final class ConstructrMachineSpec
           .expects()
           .returns(
             akkaAfter(1.hour.dilated, system.scheduler)(
-              Future.failed(new Exception("BOOM")))
+              Future.failed(new Exception("BOOM"))
+            )
           )
         (coordination.getNodes _)
           .expects()
@@ -109,7 +110,8 @@ final class ConstructrMachineSpec
           .expects(address, 1650.millis.dilated)
           .returns(
             akkaAfter(1.hour.dilated, system.scheduler)(
-              Future.failed(new Exception("BOOM")))
+              Future.failed(new Exception("BOOM"))
+            )
           )
         (coordination.lock _)
           .expects(address, 1650.millis.dilated)
@@ -130,7 +132,8 @@ final class ConstructrMachineSpec
           .expects(address, 1500.millis.dilated)
           .returns(
             akkaAfter(1.hour.dilated, system.scheduler)(
-              Future.failed(new Exception("BOOM")))
+              Future.failed(new Exception("BOOM"))
+            )
           )
         (coordination.addSelf _)
           .expects(address, 1500.millis.dilated)

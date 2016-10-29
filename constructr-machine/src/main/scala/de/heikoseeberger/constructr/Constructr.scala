@@ -24,7 +24,7 @@ import akka.actor.{
   SupervisorStrategy,
   Terminated
 }
-import akka.cluster.Cluster
+import akka.cluster.{ Cluster, Member }
 import akka.cluster.ClusterEvent.{
   InitialStateAsEvents,
   MemberExited,
@@ -69,21 +69,18 @@ final class Constructr private
   private def active(machine: ActorRef): Receive = {
     case Terminated(`machine`) =>
       val selfAddress = cluster.selfAddress
-      if (cluster.state.members.exists(member =>
-            member.address == selfAddress && member.status == Up)) {
-        log.error(
-          "Leaving the cluster, because constructr-machine has terminated!"
-        )
+      def isSelfAndUp(member: Member) =
+        member.address == selfAddress && member.status == Up
+      if (cluster.state.members.exists(isSelfAndUp)) {
+        log.error("Leaving, because constructr-machine terminated!")
         cluster.leave(selfAddress)
       } else {
-        log.error(
-          "Terminating the system, because constructr-machine has terminated!"
-        )
+        log.error("Terminating system, because constructr-machine terminated!")
         context.system.terminate()
       }
 
     case MemberRemoved(member, _) if member.address == cluster.selfAddress =>
-      log.error("Terminating the system, because member has been removed!")
+      log.error("Terminating system, because member has been removed!")
       context.system.terminate()
   }
 

@@ -32,20 +32,17 @@ import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object ConstructrMachine {
 
-//  type StateFunction = PartialFunction[FSM.Event[Data], FSM.State[State, Data]]
-
   implicit class DurationOps(val duration: Duration) extends AnyVal {
-    def toFinite: FiniteDuration = duration match {
-      case Duration(n, unit) =>
-        Duration(n, unit)
-      case _ =>
-        throw new IllegalStateException(
-          "Can't convert an infinite duration to a finite one!")
-    }
+
+    def toFinite: FiniteDuration =
+      duration match {
+        case Duration(n, unit) => Duration(n, unit)
+        case _                 => throw new IllegalStateException("Infinite duration!")
+      }
   }
 
   sealed trait State
-  object State {
+  final object State {
     case object GettingNodes     extends State
     case object Locking          extends State
     case object Joining          extends State
@@ -55,7 +52,9 @@ object ConstructrMachine {
     case object RetryScheduled   extends State
   }
 
-  case class Data(nodes: Set[Address], retryState: State, nrOfRetriesLeft: Int)
+  final case class Data(nodes: Set[Address],
+                        retryState: State,
+                        nrOfRetriesLeft: Int)
 
   final case class StateTimeoutException(state: State)
       extends RuntimeException(s"State timeout triggered in state $state!")
@@ -134,13 +133,11 @@ final class ConstructrMachine(
         .using(stateData.copy(nodes = nodes, nrOfRetriesLeft = nrOfRetries))
 
     case Event(Status.Failure(cause), _) =>
-      log.warning(
-        s"Failure in $stateName, going to RetryScheduled/GettingNodes: $cause")
+      log.warning(s"Failure in $stateName, going to GettingNodes: $cause")
       retry(State.GettingNodes)
 
     case Event(StateTimeout, _) =>
-      log.warning(
-        s"Timeout in $stateName, going to RetryScheduled/GettingNodes")
+      log.warning(s"Timeout in $stateName, going to GettingNodes")
       retry(State.GettingNodes)
   }
 
@@ -157,7 +154,8 @@ final class ConstructrMachine(
     case Event(true, _) =>
       log.debug("Successfully locked, going to Joining")
       goto(State.Joining).using(
-        stateData.copy(nodes = Set(selfNode), nrOfRetriesLeft = nrOfRetries))
+        stateData.copy(nodes = Set(selfNode), nrOfRetriesLeft = nrOfRetries)
+      )
 
     case Event(false, _) =>
       log.warning("Couldn't acquire lock, going to GettingNodes")
@@ -165,12 +163,11 @@ final class ConstructrMachine(
         .using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
 
     case Event(Status.Failure(cause), _) =>
-      log.warning(
-        s"Failure in $stateName, going to RetryScheduled/Locking: $cause")
+      log.warning(s"Failure in $stateName, going to Locking: $cause")
       retry(State.Locking)
 
     case Event(StateTimeout, _) =>
-      log.warning(s"Timeout in $stateName, going to RetryScheduled/Locking")
+      log.warning(s"Timeout in $stateName, going to Locking")
       retry(State.Locking)
   }
 
@@ -190,12 +187,16 @@ final class ConstructrMachine(
   when(State.Joining, joinTimeout) {
     case Event(MemberJoined(member), _) if member.address == selfNode =>
       goto(State.AddingSelf)
+
     case Event(MemberJoined(member), _) =>
       stay()
+
     case Event(MemberUp(member), _) if member.address == selfNode =>
       goto(State.AddingSelf)
+
     case Event(MemberUp(member), _) =>
       stay()
+
     case Event(StateTimeout, _) =>
       stop(Failure("Timeout in Joining!"))
   }
@@ -226,12 +227,11 @@ final class ConstructrMachine(
         .using(data.copy(nrOfRetriesLeft = nrOfRetries))
 
     case Event(Status.Failure(cause), _) =>
-      log.warning(
-        s"Failure in $stateName, going to RetryScheduled/AddingSelf: $cause")
+      log.warning(s"Failure in $stateName, going to AddingSelf: $cause")
       retry(State.AddingSelf)
 
     case Event(StateTimeout, _) =>
-      log.warning(s"Timeout in $stateName, going to RetryScheduled/AddingSelf")
+      log.warning(s"Timeout in $stateName, going to AddingSelf")
       retry(State.AddingSelf)
   }
 
@@ -265,12 +265,11 @@ final class ConstructrMachine(
         .using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
 
     case Event(Status.Failure(cause), _) =>
-      log.warning(
-        s"Failure in $stateName, going to RetryScheduled/Refreshing: $cause")
+      log.warning(s"Failure in $stateName, going to Refreshing: $cause")
       retry(State.Refreshing)
 
     case Event(StateTimeout, _) =>
-      log.warning(s"Timeout in $stateName, going to RetryScheduled/Refreshing")
+      log.warning(s"Timeout in $stateName, going to Refreshing")
       retry(State.Refreshing)
   }
 
