@@ -18,7 +18,7 @@ package de.heikoseeberger.constructr.coordination.etcd
 
 import akka.Done
 import akka.actor.{ ActorSystem, AddressFromURIString }
-import akka.testkit.TestProbe
+import akka.testkit.{ TestDuration, TestProbe }
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scala.concurrent.duration.{ Duration, DurationInt, FiniteDuration }
@@ -59,20 +59,19 @@ class EtcdCoordinationSpec
 
       resultOf(coordination.getNodes()) shouldBe 'empty
 
-      resultOf(coordination.lock(address, 10.seconds)) shouldBe true
-      resultOf(coordination.lock(address, 10.seconds)) shouldBe true
-      resultOf(coordination.lock(address2, 10.seconds)) shouldBe false
+      resultOf(coordination.lock(address, 10.seconds.dilated)) shouldBe true
+      resultOf(coordination.lock(address, 10.seconds.dilated)) shouldBe true
+      resultOf(coordination.lock(address2, 10.seconds.dilated)) shouldBe false
 
-      resultOf(coordination.addSelf(address, 10.seconds)) shouldBe Done
+      resultOf(coordination.addSelf(address, 10.seconds.dilated)) shouldBe Done
       resultOf(coordination.getNodes()) shouldBe Set(address)
 
-      resultOf(coordination.refresh(address, 1.second)) shouldBe Done
+      resultOf(coordination.refresh(address, 1.second.dilated)) shouldBe Done
       resultOf(coordination.getNodes()) shouldBe Set(address)
 
       val probe = TestProbe()
-      import probe._
-      within(5.seconds) { // 2 seconds should be enough, but who knows hows ...
-        awaitAssert {
+      probe.within(5.seconds.dilated) { // 2 seconds should be enough, but who knows hows ...
+        probe.awaitAssert {
           resultOf(coordination.getNodes()) shouldBe 'empty
         }
       }
@@ -85,7 +84,7 @@ class EtcdCoordinationSpec
   }
 
   private def resultOf[A](awaitable: Awaitable[A],
-                          max: FiniteDuration = 3.seconds) =
+                          max: FiniteDuration = 3.seconds.dilated) =
     Await.result(awaitable, max)
 
   private def randomString() = math.abs(Random.nextInt).toString
