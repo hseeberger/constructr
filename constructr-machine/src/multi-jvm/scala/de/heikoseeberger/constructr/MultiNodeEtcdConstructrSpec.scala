@@ -37,7 +37,7 @@ object MultiNodeEtcdConstructrSpec {
     def jsonToNode(json: Json) = {
       val key = json.key
         .as[String]
-        .stripPrefix("/constructr/akka/MultiNodeConstructrSpec/nodes/")
+        .stripPrefix("/constructr/MultiNodeConstructrSpec/nodes/")
       AddressFromURIString(new String(Base64.getUrlDecoder.decode(key)))
     }
     Json.parse(s).node match {
@@ -50,7 +50,7 @@ object MultiNodeEtcdConstructrSpec {
 abstract class MultiNodeEtcdConstructrSpec
     extends MultiNodeConstructrSpec(
       2379,
-      "/v2/keys/constructr/akka?recursive=true",
-      "/v2/keys/constructr/akka/MultiNodeConstructrSpec/nodes",
+      "/v2/keys/constructr?recursive=true",
+      "/v2/keys/constructr/MultiNodeConstructrSpec/nodes",
       MultiNodeEtcdConstructrSpec.toNodes
     )

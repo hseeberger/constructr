@@ -88,7 +88,7 @@ final class Constructr private
     context.actorOf(
       ConstructrMachine.props(
         cluster.selfAddress,
-        Coordination("akka", context.system.name, context.system),
+        Coordination(context.system.name, context.system),
         settings.coordinationTimeout,
         settings.nrOfRetries,
         settings.retryDelay,

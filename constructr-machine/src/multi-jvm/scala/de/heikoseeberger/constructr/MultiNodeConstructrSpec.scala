@@ -131,16 +131,17 @@ abstract class MultiNodeConstructrSpec(
 
     within(5.seconds.dilated) {
       awaitAssert {
-        val constructrNodes = Await.result(
-          Http()
-            .singleRequest(
-              Get(s"http://$coordinationHost:$coordinationPort$get")
-            )
-            .flatMap(resp => Unmarshal(resp).to[String].map(s => toNodes(s))),
-          1.second.dilated
-        )
-        val expected = constructrNodes.flatMap(_.port)
-        roles.to[Set].map(_.name.toInt) shouldBe expected
+        val constructrNodes =
+          Await.result(
+            Http()
+              .singleRequest(
+                Get(s"http://$coordinationHost:$coordinationPort$get")
+              )
+              .flatMap(Unmarshal(_).to[String].map(toNodes)),
+            1.second.dilated
+          )
+        val ports = constructrNodes.flatMap(_.port)
+        ports shouldBe roles.to[Set].map(_.name.toInt)
       }
     }
 

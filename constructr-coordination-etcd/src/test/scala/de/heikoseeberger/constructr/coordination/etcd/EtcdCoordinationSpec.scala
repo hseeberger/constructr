@@ -55,8 +55,7 @@ class EtcdCoordinationSpec
 
   "EtcdCoordination" should {
     "correctly interact with etcd" in {
-      val coordination =
-        new EtcdCoordination(randomString(), randomString(), system)
+      val coordination = new EtcdCoordination(randomString(), system)
 
       resultOf(coordination.getNodes()) shouldBe 'empty
 

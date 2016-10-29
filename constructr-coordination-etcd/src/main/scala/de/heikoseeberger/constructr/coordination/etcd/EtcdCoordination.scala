@@ -52,9 +52,7 @@ object EtcdCoordination {
   private def toSeconds(duration: Duration) = (duration.toSeconds + 1).toString
 }
 
-final class EtcdCoordination(prefix: String,
-                             clusterName: String,
-                             system: ActorSystem)
+final class EtcdCoordination(clusterName: String, system: ActorSystem)
     extends Coordination {
   import EtcdCoordination._
 
@@ -68,8 +66,7 @@ final class EtcdCoordination(prefix: String,
     Uri(s"http://$host:$port/v2/keys")
   }
 
-  private val baseUri =
-    kvUri.withPath(kvUri.path / "constructr" / prefix / clusterName)
+  private val baseUri = kvUri.withPath(kvUri.path / "constructr" / clusterName)
 
   private val nodesUri = baseUri.withPath(baseUri.path / "nodes")
 
