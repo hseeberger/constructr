@@ -1,11 +1,11 @@
-lazy val constructr =
+lazy val `constructr-root` =
   project
     .in(file("."))
     .enablePlugins(GitVersioning)
     .aggregate(
       `constructr-coordination`,
       `constructr-coordination-etcd`,
-      `constructr-machine`
+      `constructr`
     )
 
 lazy val `constructr-coordination` =
@@ -17,7 +17,7 @@ lazy val `constructr-coordination-etcd` =
     .enablePlugins(AutomateHeaderPlugin)
     .dependsOn(`constructr-coordination`)
 
-lazy val `constructr-machine` =
+lazy val `constructr` =
   project
     .enablePlugins(AutomateHeaderPlugin)
     .configs(MultiJvm)

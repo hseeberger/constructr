@@ -42,7 +42,7 @@ If something goes finally wrong when interacting with the coordination service, 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Vector(
-  "de.heikoseeberger" %% "constructr-machine" % "0.13.2",
+  "de.heikoseeberger" %% "constructr" % "0.13.2",
   ...
 )
 ```
