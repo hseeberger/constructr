@@ -18,7 +18,7 @@ package de.heikoseeberger.constructr.coordination
 package etcd
 
 import akka.Done
-import akka.actor.ActorSystem
+import akka.actor.{ ActorSystem, Address, AddressFromURIString }
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding.{ Get, Put }
 import akka.http.scaladsl.model.StatusCodes.{
@@ -37,7 +37,8 @@ import akka.http.scaladsl.model.{
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
-import java.util.Base64
+import java.nio.charset.StandardCharsets.UTF_8
+import java.util.Base64.{ getUrlDecoder, getUrlEncoder }
 import scala.concurrent.Future
 import scala.concurrent.duration.{ Duration, FiniteDuration }
 
@@ -45,16 +46,14 @@ object EtcdCoordination {
 
   final case class UnexpectedStatusCode(uri: Uri, statusCode: StatusCode)
       extends RuntimeException(
-        s"Unexpected status code $statusCode for URI $uri")
+        s"Unexpected status code $statusCode for URI $uri"
+      )
 
   private def toSeconds(duration: Duration) = (duration.toSeconds + 1).toString
 }
 
-final class EtcdCoordination(prefix: String,
-                             clusterName: String,
-                             system: ActorSystem)
+final class EtcdCoordination(clusterName: String, system: ActorSystem)
     extends Coordination {
-  import Coordination._
   import EtcdCoordination._
 
   private implicit val mat = ActorMaterializer()(system)
@@ -67,12 +66,11 @@ final class EtcdCoordination(prefix: String,
     Uri(s"http://$host:$port/v2/keys")
   }
 
-  private val baseUri =
-    kvUri.withPath(kvUri.path / "constructr" / prefix / clusterName)
+  private val baseUri = kvUri.withPath(kvUri.path / "constructr" / clusterName)
 
   private val nodesUri = baseUri.withPath(baseUri.path / "nodes")
 
-  override def getNodes[A: NodeSerialization]() = {
+  override def getNodes() = {
     def unmarshalNodes(entity: ResponseEntity) = {
       def toNodes(s: String) = {
         import rapture.json._
@@ -80,18 +78,21 @@ final class EtcdCoordination(prefix: String,
         def jsonToNode(json: Json) = {
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
           val key  = json.key.as[String].stripPrefix(s"$init/")
-          NodeSerialization.fromBytes(Base64.getUrlDecoder.decode(key))
+          val uri  = new String(getUrlDecoder.decode(key), UTF_8)
+          AddressFromURIString(uri)
         }
         Json.parse(s).node match {
           case json"""{ "nodes": $nodes }""" =>
             nodes.as[Set[Json]].map(jsonToNode)
-          case _ => Set.empty[A]
+          case _ =>
+            Set.empty[Address]
         }
       }
       Unmarshal(entity).to[String].map(toNodes)
     }
     responseFor(Get(nodesUri)).flatMap {
-      case HttpResponse(OK, _, entity, _) => unmarshalNodes(entity)
+      case HttpResponse(OK, _, entity, _) =>
+        unmarshalNodes(entity)
       case HttpResponse(NotFound, _, entity, _) =>
         ignore(entity).map(_ => Set.empty)
       case HttpResponse(other, _, entity, _) =>
@@ -99,10 +100,11 @@ final class EtcdCoordination(prefix: String,
     }
   }
 
-  override def lock[A: NodeSerialization](self: A, ttl: FiniteDuration) = {
-    val lockUri = baseUri
-      .withPath(baseUri.path / "lock")
-      .withQuery(Uri.Query("value" -> self.toString))
+  override def lock(self: Address, ttl: FiniteDuration) = {
+    val lockUri =
+      baseUri
+        .withPath(baseUri.path / "lock")
+        .withQuery(Uri.Query("value" -> self.toString))
     def readLock() = {
       def unmarshalLockHolder(entity: ResponseEntity) = {
         def toLockHolder(s: String) = {
@@ -122,9 +124,11 @@ final class EtcdCoordination(prefix: String,
       }
     }
     def writeLock() = {
-      val uri = lockUri.withQuery(
-        ("prevExist" -> "false") +: ("ttl" -> toSeconds(ttl)) +: Uri.Query(
-          lockUri.rawQueryString))
+      val uri =
+        lockUri.withQuery(
+          ("prevExist" -> "false") +: ("ttl" -> toSeconds(ttl)) +:
+            Uri.Query(lockUri.rawQueryString)
+        )
       responseFor(Put(uri)).flatMap {
         case HttpResponse(Created, _, entity, _) =>
           ignore(entity).map(_ => true)
@@ -135,11 +139,14 @@ final class EtcdCoordination(prefix: String,
       }
     }
     def updateLock(lockHolder: String) = {
-      val uri = lockUri.withQuery(
-        ("prevValue" -> lockHolder) +: ("ttl" -> toSeconds(ttl)) +: Uri.Query(
-          lockUri.rawQueryString))
+      val uri =
+        lockUri.withQuery(
+          ("prevValue" -> lockHolder) +: ("ttl" -> toSeconds(ttl)) +:
+            Uri.Query(lockUri.rawQueryString)
+        )
       responseFor(Put(uri)).flatMap {
-        case HttpResponse(OK, _, entity, _) => ignore(entity).map(_ => true)
+        case HttpResponse(OK, _, entity, _) =>
+          ignore(entity).map(_ => true)
         case HttpResponse(PreconditionFailed, _, entity, _) =>
           ignore(entity).map(_ => false)
         case HttpResponse(other, _, entity, _) =>
@@ -147,26 +154,22 @@ final class EtcdCoordination(prefix: String,
       }
     }
     readLock().flatMap {
-      case Some(lockHolder) if lockHolder == self.toString =>
-        updateLock(lockHolder)
-      case Some(_) => Future.successful(false)
-      case None    => writeLock()
+      case Some(h) if h == self.toString => updateLock(h)
+      case Some(_)                       => Future.successful(false)
+      case None                          => writeLock()
     }
   }
 
-  override def addSelf[A: NodeSerialization](self: A, ttl: FiniteDuration) =
+  override def addSelf(self: Address, ttl: FiniteDuration) =
     addSelfOrRefresh(self, ttl)
 
-  override def refresh[A: NodeSerialization](self: A, ttl: FiniteDuration) =
+  override def refresh(self: Address, ttl: FiniteDuration) =
     addSelfOrRefresh(self, ttl)
 
-  private def addSelfOrRefresh[A: NodeSerialization](self: A,
-                                                     ttl: FiniteDuration) = {
-    val uri = nodesUri
-      .withPath(
-        nodesUri.path / Base64.getUrlEncoder.encodeToString(
-          NodeSerialization.toBytes(self)))
-      .withQuery(Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString))
+  private def addSelfOrRefresh(self: Address, ttl: FiniteDuration) = {
+    val node  = getUrlEncoder.encodeToString(self.toString.getBytes(UTF_8))
+    val query = Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString)
+    val uri   = nodesUri.withPath(nodesUri.path / node).withQuery(query)
     responseFor(Put(uri)).flatMap {
       case HttpResponse(OK | Created, _, entity, _) =>
         ignore(entity).map(_ => Done)
