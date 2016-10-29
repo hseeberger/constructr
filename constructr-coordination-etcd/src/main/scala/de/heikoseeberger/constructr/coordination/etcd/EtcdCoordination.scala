@@ -38,7 +38,7 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import java.nio.charset.StandardCharsets.UTF_8
-import java.util.Base64
+import java.util.Base64.{ getUrlDecoder, getUrlEncoder }
 import scala.concurrent.Future
 import scala.concurrent.duration.{ Duration, FiniteDuration }
 
@@ -81,7 +81,7 @@ final class EtcdCoordination(prefix: String,
         def jsonToNode(json: Json) = {
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
           val key  = json.key.as[String].stripPrefix(s"$init/")
-          val uri  = new String(Base64.getUrlDecoder.decode(key), UTF_8)
+          val uri  = new String(getUrlDecoder.decode(key), UTF_8)
           AddressFromURIString(uri)
         }
         Json.parse(s).node match {
@@ -104,9 +104,10 @@ final class EtcdCoordination(prefix: String,
   }
 
   override def lock(self: Address, ttl: FiniteDuration) = {
-    val lockUri = baseUri
-      .withPath(baseUri.path / "lock")
-      .withQuery(Uri.Query("value" -> self.toString))
+    val lockUri =
+      baseUri
+        .withPath(baseUri.path / "lock")
+        .withQuery(Uri.Query("value" -> self.toString))
     def readLock() = {
       def unmarshalLockHolder(entity: ResponseEntity) = {
         def toLockHolder(s: String) = {
@@ -126,9 +127,11 @@ final class EtcdCoordination(prefix: String,
       }
     }
     def writeLock() = {
-      val uri = lockUri.withQuery(
-        ("prevExist" -> "false") +: ("ttl" -> toSeconds(ttl)) +: Uri.Query(
-          lockUri.rawQueryString))
+      val uri =
+        lockUri.withQuery(
+          ("prevExist" -> "false") +: ("ttl" -> toSeconds(ttl)) +:
+            Uri.Query(lockUri.rawQueryString)
+        )
       responseFor(Put(uri)).flatMap {
         case HttpResponse(Created, _, entity, _) =>
           ignore(entity).map(_ => true)
@@ -139,9 +142,11 @@ final class EtcdCoordination(prefix: String,
       }
     }
     def updateLock(lockHolder: String) = {
-      val uri = lockUri.withQuery(
-        ("prevValue" -> lockHolder) +: ("ttl" -> toSeconds(ttl)) +: Uri.Query(
-          lockUri.rawQueryString))
+      val uri =
+        lockUri.withQuery(
+          ("prevValue" -> lockHolder) +: ("ttl" -> toSeconds(ttl)) +:
+            Uri.Query(lockUri.rawQueryString)
+        )
       responseFor(Put(uri)).flatMap {
         case HttpResponse(OK, _, entity, _) =>
           ignore(entity).map(_ => true)
@@ -165,16 +170,9 @@ final class EtcdCoordination(prefix: String,
     addSelfOrRefresh(self, ttl)
 
   private def addSelfOrRefresh(self: Address, ttl: FiniteDuration) = {
-    val uri =
-      nodesUri
-        .withPath(
-          nodesUri.path / Base64.getUrlEncoder.encodeToString(
-            self.toString.getBytes(UTF_8)
-          )
-        )
-        .withQuery(
-          Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString)
-        )
+    val node  = getUrlEncoder.encodeToString(self.toString.getBytes(UTF_8))
+    val query = Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString)
+    val uri   = nodesUri.withPath(nodesUri.path / node).withQuery(query)
     responseFor(Put(uri)).flatMap {
       case HttpResponse(OK | Created, _, entity, _) =>
         ignore(entity).map(_ => Done)

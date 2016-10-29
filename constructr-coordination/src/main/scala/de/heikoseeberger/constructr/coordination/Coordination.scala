@@ -27,12 +27,10 @@ object Coordination {
             clusterName: String,
             system: ActorSystem): Coordination =
     try {
+      val className =
+        system.settings.config.getString("constructr.coordination.class-name")
       Class
-        .forName(
-          system.settings.config.getString(
-            "constructr.coordination.class-name"
-          )
-        )
+        .forName(className)
         .getConstructor(classOf[String], classOf[String], classOf[ActorSystem])
         .newInstance(prefix, clusterName, system)
         .asInstanceOf[Coordination]

@@ -20,7 +20,6 @@ import akka.Done
 import akka.actor.{ ActorSystem, AddressFromURIString }
 import akka.testkit.TestProbe
 import com.typesafe.config.ConfigFactory
-import de.heikoseeberger.constructr.coordination.Coordination
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scala.concurrent.duration.{ Duration, DurationInt, FiniteDuration }
 import scala.concurrent.{ Await, Awaitable }
@@ -44,28 +43,26 @@ class EtcdCoordinationSpec
   import EtcdCoordinationSpec._
 
   private implicit val system = {
-    val config = ConfigFactory
-      .parseString(s"constructr.coordination.host = $coordinationHost")
-      .withFallback(ConfigFactory.load())
+    val config =
+      ConfigFactory
+        .parseString(s"constructr.coordination.host = $coordinationHost")
+        .withFallback(ConfigFactory.load())
     ActorSystem("default", config)
   }
 
-  private val address = AddressFromURIString("akka.tcp://default@a:2552")
+  private val address  = AddressFromURIString("akka.tcp://default@a:2552")
+  private val address2 = AddressFromURIString("akka.tcp://default@b:2552")
 
   "EtcdCoordination" should {
     "correctly interact with etcd" in {
-      val coordination = new EtcdCoordination(
-        randomString(),
-        randomString(),
-        system): Coordination // Ascription needed for IDEA
+      val coordination =
+        new EtcdCoordination(randomString(), randomString(), system)
 
       resultOf(coordination.getNodes()) shouldBe 'empty
 
       resultOf(coordination.lock(address, 10.seconds)) shouldBe true
       resultOf(coordination.lock(address, 10.seconds)) shouldBe true
-      resultOf(
-        coordination.lock(AddressFromURIString("akka.tcp://default@b:2552"),
-                          10.seconds)) shouldBe false
+      resultOf(coordination.lock(address2, 10.seconds)) shouldBe false
 
       resultOf(coordination.addSelf(address, 10.seconds)) shouldBe Done
       resultOf(coordination.getNodes()) shouldBe Set(address)
@@ -89,7 +86,7 @@ class EtcdCoordinationSpec
   }
 
   private def resultOf[A](awaitable: Awaitable[A],
-                          max: FiniteDuration = 3.seconds): A =
+                          max: FiniteDuration = 3.seconds) =
     Await.result(awaitable, max)
 
   private def randomString() = math.abs(Random.nextInt).toString
