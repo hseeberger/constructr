@@ -43,6 +43,7 @@ resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Vector(
   "de.heikoseeberger" %% "constructr" % "0.14.0",
+  "de.heikoseeberger" %% "constructr-coordination-etcd" % "0.14.0", // in case of using etcd for coordination
   ...
 )
 ```
@@ -50,7 +51,7 @@ libraryDependencies ++= Vector(
 Simply add the `ConstructrExtension` to the `extensions` configuration setting:
 
 ```
-akka.extensions = [de.heikoseeberger.constructr.akka.ConstructrExtension]
+akka.extensions = [de.heikoseeberger.constructr.ConstructrExtension]
 ```
 
 This will start the `Constructr` actor as a system actor. Alternatively start it yourself as early as possible if you feel so inclined.
