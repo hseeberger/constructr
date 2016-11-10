@@ -33,6 +33,7 @@ import akka.cluster.ClusterEvent.{
 }
 import akka.cluster.MemberStatus.Up
 import de.heikoseeberger.constructr.coordination.Coordination
+import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS }
 
 object Constructr {
 
@@ -42,10 +43,7 @@ object Constructr {
     Props(new Constructr)
 }
 
-final class Constructr private
-    extends Actor
-    with ActorLogging
-    with ActorSettings {
+final class Constructr private extends Actor with ActorLogging {
 
   override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
 
@@ -85,17 +83,29 @@ final class Constructr private
   }
 
   private def createConstructrMachine() = {
+    val config = context.system.settings.config
+    def getDuration(key: String) =
+      FiniteDuration(config.getDuration(key).toNanos, NANOSECONDS)
+
+    val coordinationTimeout = getDuration("constructr.coordination-timeout")
+    val nrOfRetries         = config.getInt("constructr.nr-of-retries")
+    val retryDelay          = getDuration("constructr.retry-delay")
+    val refreshInterval     = getDuration("constructr.refresh-interval")
+    val ttlFactor           = config.getDouble("constructr.ttl-factor")
+    val maxNrOfSeedNodes    = config.getInt("constructr.max-nr-of-seed-nodes")
+    val joinTimeout         = getDuration("constructr.join-timeout")
+
     context.actorOf(
       ConstructrMachine.props(
         cluster.selfAddress,
         Coordination(context.system.name, context.system),
-        settings.coordinationTimeout,
-        settings.nrOfRetries,
-        settings.retryDelay,
-        settings.refreshInterval,
-        settings.ttlFactor,
-        settings.maxNrOfSeedNodes,
-        settings.joinTimeout
+        coordinationTimeout,
+        nrOfRetries,
+        retryDelay,
+        refreshInterval,
+        ttlFactor,
+        if (maxNrOfSeedNodes <= 0) Int.MaxValue else maxNrOfSeedNodes,
+        joinTimeout
       ),
       ConstructrMachine.Name
     )
