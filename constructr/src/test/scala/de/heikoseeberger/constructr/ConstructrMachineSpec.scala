@@ -17,13 +17,13 @@
 package de.heikoseeberger.constructr
 
 import akka.Done
-import akka.actor.{ ActorSystem, FSM, Props }
+import akka.actor.{ ActorSystem, Address, FSM, Props }
 import akka.cluster.Cluster
-import akka.pattern.{ after => akkaAfter }
+import akka.pattern.{ after => delayed }
 import akka.stream.ActorMaterializer
 import akka.testkit.{ TestDuration, TestProbe }
 import de.heikoseeberger.constructr.coordination.Coordination
-import org.scalamock.scalatest.MockFactory
+import org.mockito.Mockito
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scala.concurrent.duration.{ Duration, DurationInt }
 import scala.concurrent.{ Await, Future }
@@ -31,9 +31,9 @@ import scala.concurrent.{ Await, Future }
 final class ConstructrMachineSpec
     extends WordSpec
     with Matchers
-    with BeforeAndAfterAll
-    with MockFactory {
+    with BeforeAndAfterAll {
   import ConstructrMachine._
+  import Mockito._
 
   private implicit val system = ActorSystem()
   private implicit val mat    = ActorMaterializer()
@@ -43,20 +43,13 @@ final class ConstructrMachineSpec
 
   "ConstructrMachine" should {
     "retry the given number of retries and then fail" in {
+      val coordination = mock(classOf[Coordination])
+      when(coordination.getNodes()).thenReturn(
+        boom(),
+        delayed(1.hour.dilated, system.scheduler)(noNodes())
+      )
+
       val monitor = TestProbe()
-
-      val coordination = mock[Coordination]
-      inSequence {
-        (coordination.getNodes _)
-          .expects()
-          .returns(
-            akkaAfter(1.hour.dilated, system.scheduler)(Future(Set.empty))
-          )
-        (coordination.getNodes _)
-          .expects()
-          .returns(Future.failed(new Exception("BOOM")))
-      }
-
       val machine = system.actorOf(
         Props(
           new ConstructrMachine(
@@ -78,83 +71,42 @@ final class ConstructrMachineSpec
       monitor.expectMsgPF(hint = "Current state GettingNodes") {
         case FSM.CurrentState(_, State.GettingNodes) => ()
       }
-
       monitor.expectMsgPF(hint = "GettingNodes -> RetryScheduled") {
         case FSM.Transition(_, State.GettingNodes, State.RetryScheduled) => ()
       }
       monitor.expectMsgPF(hint = "RetryScheduled -> GettingNodes") {
         case FSM.Transition(_, State.RetryScheduled, State.GettingNodes) => ()
       }
+
       monitor.expectTerminated(machine)
     }
 
     "correctly work down the happy path (including retries)" in {
-      val monitor      = TestProbe()
-      val coordination = mock[Coordination]
-      inSequence {
-        (coordination.getNodes _)
-          .expects()
-          .returns(
-            akkaAfter(1.hour.dilated, system.scheduler)(
-              Future.failed(new Exception("BOOM"))
-            )
-          )
-        (coordination.getNodes _)
-          .expects()
-          .returns(Future.failed(new Exception("BOOM")))
-        (coordination.getNodes _)
-          .expects()
-          .returns(Future.successful(Set.empty))
+      val coordination = mock(classOf[Coordination])
+      when(coordination.getNodes()).thenReturn(
+        delayed(1.hour.dilated, system.scheduler)(noNodes()),
+        boom(),
+        noNodes(),
+        noNodes()
+      )
+      when(coordination.lock(address, 1650.millis.dilated)).thenReturn(
+        delayed(1.hour.dilated, system.scheduler)(boom()),
+        boom(),
+        Future.successful(false),
+        Future.successful(true)
+      )
+      when(coordination.addSelf(address, 1500.millis.dilated)).thenReturn(
+        delayed(1.hour.dilated, system.scheduler)(boom()),
+        boom(),
+        Future.successful(Done)
+      )
+      when(coordination.refresh(address, 1500.millis.dilated)).thenReturn(
+        delayed(1.hour.dilated, system.scheduler)(boom()),
+        boom(),
+        Future.successful(Done)
+      )
 
-        (coordination.lock _)
-          .expects(address, 1650.millis.dilated)
-          .returns(
-            akkaAfter(1.hour.dilated, system.scheduler)(
-              Future.failed(new Exception("BOOM"))
-            )
-          )
-        (coordination.lock _)
-          .expects(address, 1650.millis.dilated)
-          .returns(Future.failed(new Exception("BOOM")))
-        (coordination.lock _)
-          .expects(address, 1650.millis.dilated)
-          .returns(Future.successful(false))
-
-        (coordination.getNodes _)
-          .expects()
-          .returns(Future.successful(Set.empty))
-
-        (coordination.lock _)
-          .expects(address, 1650.millis.dilated)
-          .returns(Future.successful(true))
-
-        (coordination.addSelf _)
-          .expects(address, 1500.millis.dilated)
-          .returns(
-            akkaAfter(1.hour.dilated, system.scheduler)(
-              Future.failed(new Exception("BOOM"))
-            )
-          )
-        (coordination.addSelf _)
-          .expects(address, 1500.millis.dilated)
-          .returns(Future.failed(new Exception("BOOM")))
-        (coordination.addSelf _)
-          .expects(address, 1500.millis.dilated)
-          .returns(Future.successful(Done))
-
-        (coordination.refresh _)
-          .expects(address, 1500.millis.dilated)
-          .returns(akkaAfter(1.hour.dilated, system.scheduler)(
-            Future.failed(new Exception("BOOM"))))
-        (coordination.refresh _)
-          .expects(address, 1500.millis.dilated)
-          .returns(Future.failed(new Exception("BOOM")))
-        (coordination.refresh _)
-          .expects(address, 1500.millis.dilated)
-          .anyNumberOfTimes
-          .returns(Future.successful(Done))
-      }
-
+      val monitor = TestProbe()
       val machine = system.actorOf(
         Props(
           new ConstructrMachine(
@@ -262,4 +214,8 @@ final class ConstructrMachineSpec
     Await.ready(system.terminate, Duration.Inf)
     super.afterAll()
   }
+
+  private def boom() = Future.failed(new Exception("BOOM"))
+
+  private def noNodes() = Future.successful(Set.empty[Address])
 }

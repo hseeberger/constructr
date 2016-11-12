@@ -53,6 +53,7 @@ object Build extends AutoPlugin {
       // scalafmt settings
       formatSbtFiles := false,
       scalafmtConfig := Some(baseDirectory.in(ThisBuild).value / ".scalafmt.conf"),
+      ivyScala       := ivyScala.value.map(_.copy(overrideScalaVersion = sbtPlugin.value)), // TODO Remove once this workaround no longer needed (https://github.com/sbt/sbt/issues/2786)!
 
       // Git settings
       git.useGitDescribe := true,
