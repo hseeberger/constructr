@@ -26,7 +26,7 @@ object Build extends AutoPlugin {
       licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0")),
       mappings.in(Compile, packageBin) += baseDirectory.in(ThisBuild).value / "LICENSE" -> "LICENSE",
       scalaVersion := Version.Scala,
-      crossScalaVersions := Vector(scalaVersion.value),
+      crossScalaVersions := Vector(Version.Scala, "2.11.8"),
       scalacOptions ++= Vector(
         "-unchecked",
         "-deprecation",

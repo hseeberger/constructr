@@ -42,6 +42,7 @@ object MultiNodeEtcdConstructrSpec {
           .stripPrefix("/constructr/MultiNodeConstructrSpec/nodes/")
       AddressFromURIString(new String(Base64.getUrlDecoder.decode(key)))
     }
+    import cats.syntax.either._ // for Scala 2.11
     parse(s)
       .fold(throw _, identity)
       .hcursor
