@@ -188,14 +188,8 @@ final class ConstructrMachine(
     case Event(MemberJoined(member), _) if member.address == selfNode =>
       goto(State.AddingSelf)
 
-    case Event(MemberJoined(member), _) =>
-      stay()
-
     case Event(MemberUp(member), _) if member.address == selfNode =>
       goto(State.AddingSelf)
-
-    case Event(MemberUp(member), _) =>
-      stay()
 
     case Event(StateTimeout, _) =>
       stop(Failure("Timeout in Joining!"))
@@ -284,6 +278,12 @@ final class ConstructrMachine(
     case Event(StateTimeout, Data(_, retryState, _)) =>
       log.debug(s"Waited for $retryDelay, going to $retryState")
       goto(retryState)
+  }
+
+  // Unhandled events
+
+  whenUnhandled {
+    case _: Event => stay()
   }
 
   // Initialization
