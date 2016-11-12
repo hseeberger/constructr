@@ -37,6 +37,8 @@ import akka.http.scaladsl.model.{
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
+import io.circe.Json
+import io.circe.parser.parse
 import java.nio.charset.StandardCharsets.UTF_8
 import java.util.Base64.{ getUrlDecoder, getUrlEncoder }
 import scala.concurrent.Future
@@ -72,21 +74,24 @@ final class EtcdCoordination(clusterName: String, system: ActorSystem)
 
   override def getNodes() = {
     def unmarshalNodes(entity: ResponseEntity) = {
-      def toNodes(s: String) = {
-        import rapture.json._
-        import rapture.json.jsonBackends.circe._
-        def jsonToNode(json: Json) = {
+      def toNodes(s: String) = { // Set[Address]
+        def jsonToNode(json: Json) = { // Address
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
-          val key  = json.key.as[String].stripPrefix(s"$init/")
-          val uri  = new String(getUrlDecoder.decode(key), UTF_8)
+          val key =
+            json.cursor
+              .get[String]("key")
+              .fold(throw _, identity)
+              .stripPrefix(s"$init/")
+          val uri = new String(getUrlDecoder.decode(key), UTF_8)
           AddressFromURIString(uri)
         }
-        Json.parse(s).node match {
-          case json"""{ "nodes": $nodes }""" =>
-            nodes.as[Set[Json]].map(jsonToNode)
-          case _ =>
-            Set.empty[Address]
-        }
+        parse(s)
+          .fold(throw _, identity)
+          .hcursor
+          .downField("node")
+          .get[Set[Json]]("nodes")
+          .getOrElse(Set.empty)
+          .map(jsonToNode)
       }
       Unmarshal(entity).to[String].map(toNodes)
     }
@@ -107,11 +112,13 @@ final class EtcdCoordination(clusterName: String, system: ActorSystem)
         .withQuery(Uri.Query("value" -> self.toString))
     def readLock() = {
       def unmarshalLockHolder(entity: ResponseEntity) = {
-        def toLockHolder(s: String) = {
-          import rapture.json._
-          import rapture.json.jsonBackends.circe._
-          Json.parse(s).node.value.as[String]
-        }
+        def toLockHolder(s: String) =
+          parse(s)
+            .fold(throw _, identity)
+            .hcursor
+            .downField("node")
+            .get[String]("value")
+            .fold(throw _, identity)
         Unmarshal(entity).to[String].map(toLockHolder)
       }
       responseFor(Get(lockUri)).flatMap {

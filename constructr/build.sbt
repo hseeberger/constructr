@@ -4,7 +4,7 @@ libraryDependencies ++= Vector(
   Library.akkaMultiNodeTestkit % "test",
   Library.akkaTestkit          % "test",
   Library.log4jCore            % "test",
-  Library.scalaMock            % "test",
+  Library.mockitoCore          % "test",
   Library.scalaTest            % "test"
 )
 

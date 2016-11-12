@@ -1,6 +1,6 @@
 libraryDependencies ++= Vector(
   Library.akkaHttp,
-  Library.raptureJsonCirce,
+  Library.circeParser,
   Library.akkaTestkit % "test",
   Library.scalaTest   % "test"
 )
