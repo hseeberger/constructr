@@ -74,8 +74,8 @@ final class EtcdCoordination(clusterName: String, system: ActorSystem)
 
   override def getNodes() = {
     def unmarshalNodes(entity: ResponseEntity) = {
-      def toNodes(s: String) = { // Set[Address]
-        def jsonToNode(json: Json) = { // Address
+      def toNodes(s: String) = {
+        def jsonToNode(json: Json) = {
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
           val key =
             json.cursor
@@ -85,6 +85,7 @@ final class EtcdCoordination(clusterName: String, system: ActorSystem)
           val uri = new String(getUrlDecoder.decode(key), UTF_8)
           AddressFromURIString(uri)
         }
+        import cats.syntax.either._ // for Scala 2.11
         parse(s)
           .fold(throw _, identity)
           .hcursor
