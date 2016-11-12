@@ -283,7 +283,8 @@ final class ConstructrMachine(
   // Unhandled events
 
   whenUnhandled {
-    case _: Event => stay()
+    // Unsubscribe might be late
+    case Event(MemberJoined(_) | MemberUp(_), _) => stay()
   }
 
   // Initialization
