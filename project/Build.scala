@@ -44,7 +44,7 @@ object Build extends AutoPlugin {
       // POM settings for Sonatype
       homepage := Some(url("https://github.com/hseeberger/constructr")),
       scmInfo := Some(ScmInfo(url("https://github.com/hseeberger/constructr"),
-                                  "git@github.com:hseeberger/constructr.git")),
+                              "git@github.com:hseeberger/constructr.git")),
       developers += Developer("hseeberger",
                               "Heiko Seeberger",
                               "mail@heikoseeberger.de",
