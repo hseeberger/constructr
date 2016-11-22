@@ -42,8 +42,8 @@ If something goes finally wrong when interacting with the coordination service, 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Vector(
-  "de.heikoseeberger" %% "constructr" % "0.14.0",
-  "de.heikoseeberger" %% "constructr-coordination-etcd" % "0.14.0", // in case of using etcd for coordination
+  "de.heikoseeberger" %% "constructr" % "0.15.0",
+  "de.heikoseeberger" %% "constructr-coordination-etcd" % "0.15.0", // in case of using etcd for coordination
   ...
 )
 ```
