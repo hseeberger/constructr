@@ -85,6 +85,7 @@ There are some implementations for other coordination backends than etcd:
 
 * [Tecsisa/constructr-consul](https://github.com/Tecsisa/constructr-consul): This library enables to use Consul as cluster coordinator in a ConstructR based cluster.
 * [everpeace/constructr-redis](https://github.com/everpeace/constructr-redis): This library enables to use Redis as cluster coordinator in a ConstructR based cluster.
+* [typesafehub/constructr-zookeeper](https://github.com/typesafehub/constructr-zookeeper): This library enables to use ZooKeeper as cluster coordinator in a ConstructR based cluster.
 
 ## Testing
 
