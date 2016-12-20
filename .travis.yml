@@ -1,8 +1,8 @@
 language: scala
 
 scala:
-  - 2.12.0
   - 2.11.8
+  - 2.12.1
 
 jdk:
 - oraclejdk8
@@ -16,4 +16,9 @@ services:
 
 before_install:
 - docker pull quay.io/coreos/etcd:v2.3.7
-- docker run --detach --publish 2379:2379 quay.io/coreos/etcd:v2.3.7 --listen-client-urls http://0.0.0.0:2379 --advertise-client-urls http://127.0.0.1:2379
+- docker run
+    --detach
+    --publish 2379:2379
+    quay.io/coreos/etcd:v2.3.7
+    --listen-client-urls http://0.0.0.0:2379
+    --advertise-client-urls http://127.0.0.1:2379

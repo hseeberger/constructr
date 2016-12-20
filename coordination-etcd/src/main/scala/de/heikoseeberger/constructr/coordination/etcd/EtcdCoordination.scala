@@ -135,7 +135,7 @@ final class EtcdCoordination(clusterName: String, system: ActorSystem)
       val uri =
         lockUri.withQuery(
           ("prevExist" -> "false") +: ("ttl" -> toSeconds(ttl)) +:
-            Uri.Query(lockUri.rawQueryString)
+          Uri.Query(lockUri.rawQueryString)
         )
       responseFor(Put(uri)).flatMap {
         case HttpResponse(Created, _, entity, _) =>
@@ -150,7 +150,7 @@ final class EtcdCoordination(clusterName: String, system: ActorSystem)
       val uri =
         lockUri.withQuery(
           ("prevValue" -> lockHolder) +: ("ttl" -> toSeconds(ttl)) +:
-            Uri.Query(lockUri.rawQueryString)
+          Uri.Query(lockUri.rawQueryString)
         )
       responseFor(Put(uri)).flatMap {
         case HttpResponse(OK, _, entity, _) =>

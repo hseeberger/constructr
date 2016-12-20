@@ -16,7 +16,7 @@
 
 package de.heikoseeberger.constructr
 
-import akka.actor.ActorDSL.{ Act, actor }
+import akka.actor.ActorDSL.{ actor, Act }
 import akka.actor.Address
 import akka.cluster.{ Cluster, ClusterEvent }
 import akka.http.scaladsl.Http
