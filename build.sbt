@@ -96,7 +96,8 @@ lazy val settings =
   commonSettings ++
   scalafmtSettings ++
   gitSettings ++
-  headerSettings
+  headerSettings ++
+  sonatypeSettings
 
 lazy val commonSettings =
   Seq(
@@ -143,6 +144,18 @@ import de.heikoseeberger.sbtheader.license.Apache2_0
 lazy val headerSettings =
   Seq(
     headers := Map("scala" -> Apache2_0("2015", "Heiko Seeberger"))
+  )
+
+lazy val sonatypeSettings =
+  Seq(
+    homepage := Some(url("https://github.com/hseeberger/constructr")),
+    scmInfo := Some(ScmInfo(url("https://github.com/hseeberger/constructr"),
+                            "git@github.com:hseeberger/constructr.git")),
+    developers += Developer("hseeberger",
+                            "Heiko Seeberger",
+                            "mail@heikoseeberger.de",
+                            url("https://github.com/hseeberger")),
+    pomIncludeRepository := (_ => false)
   )
 
 import ScalaFmtPlugin.configScalafmtSettings
