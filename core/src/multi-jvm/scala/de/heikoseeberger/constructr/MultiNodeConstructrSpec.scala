@@ -53,11 +53,11 @@ class ConstructrMultiNodeConfig(coordinationPort: Int)
     nodeConfig(role(port.toString))(
       ConfigFactory.parseString(
         s"""|akka.actor.provider            = akka.cluster.ClusterActorRefProvider
-          |akka.remote.netty.tcp.hostname = "127.0.0.1"
-          |akka.remote.netty.tcp.port     = $port
-          |constructr.coordination.host   = $coordinationHost
-          |constructr.coordination.port   = $coordinationPort
-          |""".stripMargin
+            |akka.remote.netty.tcp.hostname = "127.0.0.1"
+            |akka.remote.netty.tcp.port     = $port
+            |constructr.coordination.host   = $coordinationHost
+            |constructr.coordination.port   = $coordinationPort
+            |""".stripMargin
       )
     )
   }

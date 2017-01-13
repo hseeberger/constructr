@@ -6,7 +6,13 @@ lazy val constructr =
   project
     .in(file("."))
     .enablePlugins(GitVersioning)
-    .aggregate(core, coordination, `coordination-etcd`)
+    .disablePlugins(ProtocPlugin)
+    .aggregate(
+      core,
+      coordination,
+      `coordination-etcd-2`,
+      `coordination-etcd-3`
+    )
     .settings(settings)
     .settings(
       unmanagedSourceDirectories.in(Compile) := Seq.empty,
@@ -17,8 +23,9 @@ lazy val constructr =
 lazy val core =
   project
     .enablePlugins(AutomateHeaderPlugin)
+    .disablePlugins(ProtocPlugin)
     .configs(MultiJvm)
-    .dependsOn(coordination,`coordination-etcd` % "test->compile")
+    .dependsOn(coordination,`coordination-etcd-2` % "test->compile")
     .settings(settings)
     .settings(multiJvmSettings)
     .settings(
@@ -37,6 +44,7 @@ lazy val core =
 lazy val coordination =
   project
     .enablePlugins(AutomateHeaderPlugin)
+    .disablePlugins(ProtocPlugin)
     .settings(settings)
     .settings(
       name := "constructr-coordination",
@@ -45,18 +53,32 @@ lazy val coordination =
       )
     )
 
-lazy val `coordination-etcd` =
+lazy val `coordination-etcd-2` =
   project
     .enablePlugins(AutomateHeaderPlugin)
+    .disablePlugins(ProtocPlugin)
     .dependsOn(coordination)
     .settings(settings)
     .settings(
-      name := "constructr-coordination-etcd",
+      name := "constructr-coordination-etcd-2",
       libraryDependencies ++= Seq(
         library.akkaHttp,
         library.circeParser,
         library.akkaTestkit % Test,
         library.scalaTest   % Test
+      )
+    )
+
+lazy val `coordination-etcd-3` =
+  project
+    .enablePlugins(AutomateHeaderPlugin)
+    .dependsOn(coordination)
+    .settings(settings)
+    .settings(pbSettings)
+    .settings(
+      name := "constructr-coordination-etcd-3",
+      libraryDependencies ++= Seq(
+        library.scalaTest % Test
       )
     )
 
@@ -67,13 +89,15 @@ lazy val `coordination-etcd` =
 lazy val library =
   new {
     object Version {
-      final val akka      = "2.4.16"
-      final val akkaHttp  = "10.0.0"
-      final val akkaLog4j = "1.2.2"
-      final val circe     = "0.6.1"
-      final val log4j     = "2.7"
-      final val mockito   = "2.3.7"
-      final val scalaTest = "3.0.1"
+      val akka      = "2.4.16"
+      val akkaHttp  = "10.0.0"
+      val akkaLog4j = "1.2.2"
+      val circe     = "0.6.1"
+      val grpc      = "1.0.3"
+      val log4j     = "2.7"
+      val mockito   = "2.3.7"
+      val scalapb   = com.trueaccord.scalapb.compiler.Version.scalapbVersion
+      val scalaTest = "3.0.1"
     }
     val akkaActor            = "com.typesafe.akka"        %% "akka-actor"              % Version.akka
     val akkaCluster          = "com.typesafe.akka"        %% "akka-cluster"            % Version.akka
@@ -83,8 +107,12 @@ lazy val library =
     val akkaSlf4j            = "com.typesafe.akka"        %% "akka-slf4j"              % Version.akka
     val akkaTestkit          = "com.typesafe.akka"        %% "akka-testkit"            % Version.akka
     val circeParser          = "io.circe"                 %% "circe-parser"            % Version.circe
+    val grpcNetty            = "io.grpc"                  %  "grpc-netty"              % Version.grpc
+    val grpcStub             = "io.grpc"                  %  "grpc-stub"               % Version.grpc
     val log4jCore            = "org.apache.logging.log4j" %  "log4j-core"              % Version.log4j
     val mockitoCore          = "org.mockito"              %  "mockito-core"            % Version.mockito
+    val scalapbRuntime       = "com.trueaccord.scalapb"   %% "scalapb-runtime"         % Version.scalapb
+    val scalapbRuntimeGrpc   = "com.trueaccord.scalapb"   %% "scalapb-runtime-grpc"    % Version.scalapb
     val scalaTest            = "org.scalatest"            %% "scalatest"               % Version.scalaTest
 }
 
@@ -175,4 +203,16 @@ lazy val multiJvmSettings =
       val scalafmtValue = scalafmt.in(MultiJvm).value
       compileInputs.in(MultiJvm, compile).value
     }
+  )
+
+lazy val pbSettings =
+  Seq(
+    PB.protoSources.in(Compile) :=
+      Seq(sourceDirectory.in(Compile).value / "proto"),
+    PB.targets.in(Compile) :=
+      Seq(scalapb.gen() -> sourceManaged.in(Compile).value),
+    libraryDependencies ++= Seq(
+      library.scalapbRuntimeGrpc,
+      library.scalapbRuntime % "protobuf"
+    )
   )
