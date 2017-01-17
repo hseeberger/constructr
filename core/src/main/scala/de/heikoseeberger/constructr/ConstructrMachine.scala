@@ -32,14 +32,11 @@ import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object ConstructrMachine {
 
-  implicit class DurationOps(val duration: Duration) extends AnyVal {
-
-    def toFinite: FiniteDuration =
-      duration match {
-        case Duration(n, unit) => Duration(n, unit)
-        case _                 => throw new IllegalStateException("Infinite duration!")
-      }
-  }
+  private implicit def toFinite(duration: Duration): FiniteDuration =
+    duration match {
+      case Duration(n, unit) => Duration(n, unit)
+      case _                 => throw new IllegalStateException("Infinite duration!")
+    }
 
   sealed trait State
   final object State {
@@ -147,7 +144,7 @@ final class ConstructrMachine(
     case _ -> State.Locking =>
       log.debug("Transitioning to Locking")
       val ttl = (2 * maxCoordinationTimeout + joinTimeout) * ttlFactor // Keep lock until self added
-      coordination.lock(selfNode, ttl.toFinite).pipeTo(self)
+      coordination.lock(selfNode, ttl).pipeTo(self)
   }
 
   when(State.Locking, coordinationTimeout) {
@@ -209,9 +206,7 @@ final class ConstructrMachine(
   onTransition {
     case _ -> State.AddingSelf =>
       log.debug("Transitioning to AddingSelf")
-      coordination
-        .addSelf(selfNode, addingSelfOrRefreshingTtl.toFinite)
-        .pipeTo(self)
+      coordination.addSelf(selfNode, addingSelfOrRefreshingTtl).pipeTo(self)
   }
 
   when(State.AddingSelf, coordinationTimeout) {
@@ -247,9 +242,7 @@ final class ConstructrMachine(
   onTransition {
     case _ -> State.Refreshing =>
       log.debug(s"Transitioning to Refreshing")
-      coordination
-        .refresh(selfNode, addingSelfOrRefreshingTtl.toFinite)
-        .pipeTo(self)
+      coordination.refresh(selfNode, addingSelfOrRefreshingTtl).pipeTo(self)
   }
 
   when(State.Refreshing, coordinationTimeout) {

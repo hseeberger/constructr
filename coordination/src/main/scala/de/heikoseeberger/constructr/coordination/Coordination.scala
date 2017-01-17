@@ -16,7 +16,7 @@
 
 package de.heikoseeberger.constructr.coordination
 
-import akka.Done
+import akka.{ Done, NotUsed }
 import akka.actor.{ ActorSystem, Address }
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -80,4 +80,13 @@ trait Coordination {
     * @return future signaling done
     */
   def refresh(self: Address, ttl: FiniteDuration): Future[Done]
+}
+
+trait CoordinationNew[A] {
+
+  def bootstrapOrNodes(): Future[Either[Unit, Set[Address]]]
+
+  def addSelf(self: Address, ttl: FiniteDuration): Future[A]
+
+  def refresh(self: Address, ttl: FiniteDuration, a: A): Future[Unit]
 }

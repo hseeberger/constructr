@@ -10,7 +10,7 @@ lazy val constructr =
     .aggregate(
       core,
       coordination,
-      `coordination-etcd-2`,
+//      `coordination-etcd-2`,
       `coordination-etcd-3`
     )
     .settings(settings)
@@ -25,7 +25,7 @@ lazy val core =
     .enablePlugins(AutomateHeaderPlugin)
     .disablePlugins(ProtocPlugin)
     .configs(MultiJvm)
-    .dependsOn(coordination,`coordination-etcd-2` % "test->compile")
+    .dependsOn(coordination,`coordination-etcd-3` % "test->compile")
     .settings(settings)
     .settings(multiJvmSettings)
     .settings(
