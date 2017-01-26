@@ -43,7 +43,7 @@ resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 libraryDependencies ++= Vector(
   "de.heikoseeberger" %% "constructr" % "0.16.0",
-  "de.heikoseeberger" %% "constructr-coordination-etcd" % "0.16.0", // in case of using etcd for coordination
+  "de.heikoseeberger" %% "constructr-coordination-etcd" % "0.16.1", // in case of using etcd for coordination
   ...
 )
 ```
