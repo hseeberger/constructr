@@ -36,7 +36,7 @@ object MultiNodeEtcdConstructrSpec {
   def toNodes(s: String): Set[Address] = {
     def jsonToNode(json: Json) = {
       val key =
-        json.cursor
+        json.hcursor
           .get[String]("key")
           .fold(throw _, identity)
           .stripPrefix("/constructr/MultiNodeConstructrSpec/nodes/")

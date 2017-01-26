@@ -78,7 +78,7 @@ final class EtcdCoordination(clusterName: String, system: ActorSystem)
         def jsonToNode(json: Json) = {
           val init = nodesUri.path.toString.stripPrefix(kvUri.path.toString)
           val key =
-            json.cursor
+            json.hcursor
               .get[String]("key")
               .fold(throw _, identity)
               .stripPrefix(s"$init/")

@@ -68,11 +68,11 @@ lazy val library =
   new {
     object Version {
       final val akka      = "2.4.16"
-      final val akkaHttp  = "10.0.0"
-      final val akkaLog4j = "1.2.2"
-      final val circe     = "0.6.1"
-      final val log4j     = "2.7"
-      final val mockito   = "2.3.7"
+      final val akkaHttp  = "10.0.2"
+      final val akkaLog4j = "1.3.0"
+      final val circe     = "0.7.0"
+      final val log4j     = "2.8"
+      final val mockito   = "2.6.8"
       final val scalaTest = "3.0.1"
     }
     val akkaActor            = "com.typesafe.akka"        %% "akka-actor"              % Version.akka
