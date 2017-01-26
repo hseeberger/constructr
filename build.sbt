@@ -97,7 +97,8 @@ lazy val settings =
   scalafmtSettings ++
   gitSettings ++
   headerSettings ++
-  sonatypeSettings
+  sonatypeSettings ++
+  bintraySettings
 
 lazy val commonSettings =
   Seq(
@@ -156,6 +157,11 @@ lazy val sonatypeSettings =
                             "mail@heikoseeberger.de",
                             url("https://github.com/hseeberger")),
     pomIncludeRepository := (_ => false)
+  )
+
+lazy val bintraySettings =
+  Seq(
+    bintrayPackage := "constructr"
   )
 
 import ScalaFmtPlugin.configScalafmtSettings
