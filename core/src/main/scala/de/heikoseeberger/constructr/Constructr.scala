@@ -34,6 +34,7 @@ import akka.cluster.ClusterEvent.{
 import akka.cluster.MemberStatus.Up
 import de.heikoseeberger.constructr.coordination.Coordination
 import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS }
+import scala.util.Try
 
 object Constructr {
 
@@ -94,10 +95,11 @@ final class Constructr private extends Actor with ActorLogging {
     val ttlFactor           = config.getDouble("constructr.ttl-factor")
     val maxNrOfSeedNodes    = config.getInt("constructr.max-nr-of-seed-nodes")
     val joinTimeout         = getDuration("constructr.join-timeout")
+    val hostPort            = Try(config.getInt("constructr.host-port")).toOption.orElse(cluster.selfAddress.port)
 
     context.actorOf(
       ConstructrMachine.props(
-        cluster.selfAddress,
+        cluster.selfAddress.copy(port = hostPort),
         Coordination(context.system.name, context.system),
         coordinationTimeout,
         nrOfRetries,

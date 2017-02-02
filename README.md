@@ -72,6 +72,7 @@ constructr {
   refresh-interval     = 30 seconds // TTL is refresh-interval * ttl-factor
   retry-delay          = 3 seconds  // Give coordination service (e.g. etcd) some delay before retrying
   ttl-factor           = 2.0        // Must be greater or equal 1 + ((coordination-timeout * (1 + nr-of-retries) + retry-delay * nr-of-retries)/ refresh-interval)!
+  host-port            = (undefined)// If present, this port will be published to zookeeper. Useful in containerization with bridged network (eg DC/OS) where external port is random and different than listening port.
 }
 ```
 
