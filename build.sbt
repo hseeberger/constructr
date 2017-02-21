@@ -67,8 +67,8 @@ lazy val `coordination-etcd` =
 lazy val library =
   new {
     object Version {
-      final val akka      = "2.4.16"
-      final val akkaHttp  = "10.0.2"
+      final val akka      = "2.4.17"
+      final val akkaHttp  = "10.0.3"
       final val akkaLog4j = "1.3.0"
       final val circe     = "0.7.0"
       final val log4j     = "2.8"
