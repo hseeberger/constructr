@@ -18,7 +18,7 @@ lazy val core =
   project
     .enablePlugins(AutomateHeaderPlugin)
     .configs(MultiJvm)
-    .dependsOn(coordination,`coordination-etcd` % "test->compile")
+    .dependsOn(coordination,`coordination-etcd` % "test->test")
     .settings(settings)
     .settings(multiJvmSettings)
     .settings(
@@ -30,7 +30,9 @@ lazy val core =
         library.akkaTestkit          % Test,
         library.log4jCore            % Test,
         library.mockitoCore          % Test,
-        library.scalaTest            % Test
+        library.scalaTest            % Test,
+        library.dockerTestKit        % Test,
+        library.dockerTestKitSpotify % Test
       )
     )
 
@@ -55,10 +57,14 @@ lazy val `coordination-etcd` =
       libraryDependencies ++= Seq(
         library.akkaHttp,
         library.circeParser,
-        library.akkaTestkit % Test,
-        library.scalaTest   % Test
+        library.akkaTestkit           % Test,
+        library.scalaTest             % Test,
+        library.dockerTestKit         % Test,
+        library.dockerTestKitSpotify  % Test
       )
     )
+
+parallelExecution in Global := false
 
 // *****************************************************************************
 // Library dependencies
@@ -67,25 +73,28 @@ lazy val `coordination-etcd` =
 lazy val library =
   new {
     object Version {
-      final val akka      = "2.4.17"
-      final val akkaHttp  = "10.0.3"
-      final val akkaLog4j = "1.3.0"
-      final val circe     = "0.7.0"
-      final val log4j     = "2.8"
-      final val mockito   = "2.6.8"
-      final val scalaTest = "3.0.1"
+      final val akka          = "2.4.17"
+      final val akkaHttp      = "10.0.3"
+      final val akkaLog4j     = "1.3.0"
+      final val circe         = "0.7.0"
+      final val log4j         = "2.8"
+      final val mockito       = "2.6.8"
+      final val scalaTest     = "3.0.1"
+      final val dockerTestKit = "0.9.1"
     }
-    val akkaActor            = "com.typesafe.akka"        %% "akka-actor"              % Version.akka
-    val akkaCluster          = "com.typesafe.akka"        %% "akka-cluster"            % Version.akka
-    val akkaHttp             = "com.typesafe.akka"        %% "akka-http"               % Version.akkaHttp
-    val akkaLog4j            = "de.heikoseeberger"        %% "akka-log4j"              % Version.akkaLog4j
-    val akkaMultiNodeTestkit = "com.typesafe.akka"        %% "akka-multi-node-testkit" % Version.akka
-    val akkaSlf4j            = "com.typesafe.akka"        %% "akka-slf4j"              % Version.akka
-    val akkaTestkit          = "com.typesafe.akka"        %% "akka-testkit"            % Version.akka
-    val circeParser          = "io.circe"                 %% "circe-parser"            % Version.circe
-    val log4jCore            = "org.apache.logging.log4j" %  "log4j-core"              % Version.log4j
-    val mockitoCore          = "org.mockito"              %  "mockito-core"            % Version.mockito
-    val scalaTest            = "org.scalatest"            %% "scalatest"               % Version.scalaTest
+    val akkaActor            = "com.typesafe.akka"        %% "akka-actor"                   % Version.akka
+    val akkaCluster          = "com.typesafe.akka"        %% "akka-cluster"                 % Version.akka
+    val akkaHttp             = "com.typesafe.akka"        %% "akka-http"                    % Version.akkaHttp
+    val akkaLog4j            = "de.heikoseeberger"        %% "akka-log4j"                   % Version.akkaLog4j
+    val akkaMultiNodeTestkit = "com.typesafe.akka"        %% "akka-multi-node-testkit"      % Version.akka
+    val akkaSlf4j            = "com.typesafe.akka"        %% "akka-slf4j"                   % Version.akka
+    val akkaTestkit          = "com.typesafe.akka"        %% "akka-testkit"                 % Version.akka
+    val circeParser          = "io.circe"                 %% "circe-parser"                 % Version.circe
+    val log4jCore            = "org.apache.logging.log4j" %  "log4j-core"                   % Version.log4j
+    val mockitoCore          = "org.mockito"              %  "mockito-core"                 % Version.mockito
+    val scalaTest            = "org.scalatest"            %% "scalatest"                    % Version.scalaTest
+    val dockerTestKit        = "com.whisk"                %% "docker-testkit-scalatest"     % Version.dockerTestKit
+    val dockerTestKitSpotify = "com.whisk"                %% "docker-testkit-impl-spotify"  % Version.dockerTestKit
 }
 
 // *****************************************************************************

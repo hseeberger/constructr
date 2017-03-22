@@ -29,9 +29,14 @@ import akka.stream.ActorMaterializer
 import akka.testkit.TestDuration
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
+import com.whisk.docker.impl.spotify.DockerKitSpotify
+import com.whisk.docker.scalatest.DockerTestKit
+import de.heikoseeberger.constructr.coordination.etcd.utils.DockerEtcdService
 import org.scalatest.{ BeforeAndAfterAll, FreeSpecLike, Matchers }
+
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
+import scala.util.Success
 
 object ConstructrMultiNodeConfig {
   val coordinationHost = {
@@ -71,7 +76,9 @@ abstract class MultiNodeConstructrSpec(
 ) extends MultiNodeSpec(new ConstructrMultiNodeConfig(coordinationPort))
     with FreeSpecLike
     with Matchers
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll
+    with DockerEtcdService
+    with DockerKitSpotify {
   import ConstructrMultiNodeConfig._
   import RequestBuilding._
   import system.dispatcher
@@ -80,6 +87,8 @@ abstract class MultiNodeConstructrSpec(
 
   "Constructr should manage an Akka cluster" in {
     runOn(roles.head) {
+      startAllOrFail()
+
       within(20.seconds.dilated) {
         awaitAssert {
           val coordinationStatus =
@@ -146,16 +155,20 @@ abstract class MultiNodeConstructrSpec(
     }
 
     enterBarrier("done")
+
+    runOn(roles.head) {
+      stopAllQuietly()
+    }
   }
 
   override def initialParticipants = roles.size
 
-  override protected def beforeAll() = {
+  override def beforeAll() = {
     super.beforeAll()
     multiNodeSpecBeforeAll()
   }
 
-  override protected def afterAll() = {
+  override def afterAll() = {
     multiNodeSpecAfterAll()
     super.afterAll()
   }

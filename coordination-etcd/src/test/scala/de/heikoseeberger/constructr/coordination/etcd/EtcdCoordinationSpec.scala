@@ -20,7 +20,12 @@ import akka.Done
 import akka.actor.{ ActorSystem, AddressFromURIString }
 import akka.testkit.{ TestDuration, TestProbe }
 import com.typesafe.config.ConfigFactory
+import com.whisk.docker.impl.spotify.DockerKitSpotify
+import com.whisk.docker.scalatest.DockerTestKit
+import de.heikoseeberger.constructr.coordination.etcd.utils.DockerEtcdService
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
+
 import scala.concurrent.duration.{ Duration, DurationInt, FiniteDuration }
 import scala.concurrent.{ Await, Awaitable }
 import scala.util.Random
@@ -39,7 +44,10 @@ object EtcdCoordinationSpec {
 class EtcdCoordinationSpec
     extends WordSpec
     with Matchers
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll
+    with DockerEtcdService
+    with DockerTestKit
+    with DockerKitSpotify {
   import EtcdCoordinationSpec._
 
   private implicit val system = {
@@ -78,7 +86,7 @@ class EtcdCoordinationSpec
     }
   }
 
-  override protected def afterAll() = {
+  override def afterAll() = {
     Await.ready(system.terminate(), Duration.Inf)
     super.afterAll()
   }
