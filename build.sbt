@@ -68,11 +68,11 @@ lazy val library =
   new {
     object Version {
       final val akka      = "2.4.17"
-      final val akkaHttp  = "10.0.3"
+      final val akkaHttp  = "10.0.5"
       final val akkaLog4j = "1.3.0"
-      final val circe     = "0.7.0"
-      final val log4j     = "2.8"
-      final val mockito   = "2.6.8"
+      final val circe     = "0.7.1"
+      final val log4j     = "2.8.2"
+      final val mockito   = "2.7.22"
       final val scalaTest = "3.0.1"
     }
     val akkaActor            = "com.typesafe.akka"        %% "akka-actor"              % Version.akka
@@ -94,7 +94,6 @@ lazy val library =
 
 lazy val settings =
   commonSettings ++
-  scalafmtSettings ++
   gitSettings ++
   headerSettings ++
   sonatypeSettings ++
@@ -107,8 +106,7 @@ lazy val commonSettings =
     organization := "de.heikoseeberger",
     licenses += ("Apache 2.0",
                  url("http://www.apache.org/licenses/LICENSE-2.0")),
-    mappings.in(Compile, packageBin) +=
-      baseDirectory.in(ThisBuild).value / "LICENSE" -> "LICENSE",
+    mappings.in(Compile, packageBin) += baseDirectory.in(ThisBuild).value / "LICENSE" -> "LICENSE",
     scalacOptions ++= Seq(
       "-unchecked",
       "-deprecation",
@@ -116,25 +114,9 @@ lazy val commonSettings =
       "-target:jvm-1.8",
       "-encoding", "UTF-8"
     ),
-    javacOptions ++= Seq(
-      "-source", "1.8",
-      "-target", "1.8"
-    ),
-    unmanagedSourceDirectories.in(Compile) :=
-      Seq(scalaSource.in(Compile).value),
-    unmanagedSourceDirectories.in(Test) :=
-      Seq(scalaSource.in(Test).value)
+    unmanagedSourceDirectories.in(Compile) := Seq(scalaSource.in(Compile).value),
+    unmanagedSourceDirectories.in(Test) := Seq(scalaSource.in(Test).value)
 )
-
-lazy val scalafmtSettings =
-  reformatOnCompileSettings ++
-  Seq(
-    formatSbtFiles := false,
-    scalafmtConfig :=
-      Some(baseDirectory.in(ThisBuild).value / ".scalafmt.conf"),
-    ivyScala :=
-      ivyScala.value.map(_.copy(overrideScalaVersion = sbtPlugin.value)) // TODO Remove once this workaround no longer needed (https://github.com/sbt/sbt/issues/2786)!
-  )
 
 lazy val gitSettings =
   Seq(
@@ -164,21 +146,11 @@ lazy val bintraySettings =
     bintrayPackage := "constructr"
   )
 
-import ScalaFmtPlugin.configScalafmtSettings
 lazy val multiJvmSettings =
+  automateScalafmtFor(MultiJvm) ++
   AutomateHeaderPlugin.automateFor(Compile, Test, MultiJvm) ++
   HeaderPlugin.settingsFor(Compile, Test, MultiJvm) ++
-  inConfig(MultiJvm)(configScalafmtSettings) ++
   Seq(
-    unmanagedSourceDirectories.in(MultiJvm) :=
-      Seq(scalaSource.in(MultiJvm).value),
-    test.in(Test) := {
-      val testValue = test.in(Test).value
-      test.in(MultiJvm).value
-      testValue
-    },
-    compileInputs.in(MultiJvm, compile) := {
-      val scalafmtValue = scalafmt.in(MultiJvm).value
-      compileInputs.in(MultiJvm, compile).value
-    }
+    unmanagedSourceDirectories.in(MultiJvm) := Seq(scalaSource.in(MultiJvm).value),
+    test.in(Test) := test.in(MultiJvm).dependsOn(test.in(Test)).value
   )

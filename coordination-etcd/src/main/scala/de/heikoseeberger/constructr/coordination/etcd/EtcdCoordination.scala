@@ -21,19 +21,8 @@ import akka.Done
 import akka.actor.{ ActorSystem, Address, AddressFromURIString }
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding.{ Get, Put }
-import akka.http.scaladsl.model.StatusCodes.{
-  Created,
-  NotFound,
-  OK,
-  PreconditionFailed
-}
-import akka.http.scaladsl.model.{
-  HttpRequest,
-  HttpResponse,
-  ResponseEntity,
-  StatusCode,
-  Uri
-}
+import akka.http.scaladsl.model.StatusCodes.{ Created, NotFound, OK, PreconditionFailed }
+import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, ResponseEntity, StatusCode, Uri }
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
@@ -54,8 +43,7 @@ object EtcdCoordination {
   private def toSeconds(duration: Duration) = (duration.toSeconds + 1).toString
 }
 
-final class EtcdCoordination(clusterName: String, system: ActorSystem)
-    extends Coordination {
+final class EtcdCoordination(clusterName: String, system: ActorSystem) extends Coordination {
   import EtcdCoordination._
 
   private implicit val mat = ActorMaterializer()(system)

@@ -36,10 +36,7 @@ object EtcdCoordinationSpec {
   }
 }
 
-class EtcdCoordinationSpec
-    extends WordSpec
-    with Matchers
-    with BeforeAndAfterAll {
+class EtcdCoordinationSpec extends WordSpec with Matchers with BeforeAndAfterAll {
   import EtcdCoordinationSpec._
 
   private implicit val system = {
@@ -83,8 +80,7 @@ class EtcdCoordinationSpec
     super.afterAll()
   }
 
-  private def resultOf[A](awaitable: Awaitable[A],
-                          max: FiniteDuration = 3.seconds.dilated) =
+  private def resultOf[A](awaitable: Awaitable[A], max: FiniteDuration = 3.seconds.dilated) =
     Await.result(awaitable, max)
 
   private def randomString() = math.abs(Random.nextInt).toString

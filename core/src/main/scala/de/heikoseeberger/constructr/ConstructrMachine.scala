@@ -20,11 +20,7 @@ import akka.Done
 import akka.actor.FSM.Failure
 import akka.actor.{ Address, FSM, Props, Status }
 import akka.cluster.Cluster
-import akka.cluster.ClusterEvent.{
-  InitialStateAsEvents,
-  MemberJoined,
-  MemberUp
-}
+import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberJoined, MemberUp }
 import akka.pattern.pipe
 import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
@@ -52,9 +48,7 @@ object ConstructrMachine {
     case object RetryScheduled   extends State
   }
 
-  final case class Data(nodes: Set[Address],
-                        retryState: State,
-                        nrOfRetriesLeft: Int)
+  final case class Data(nodes: Set[Address], retryState: State, nrOfRetriesLeft: Int)
 
   final case class StateTimeoutException(state: State)
       extends RuntimeException(s"State timeout triggered in state $state!")
@@ -111,8 +105,7 @@ final class ConstructrMachine(
   private implicit val mat = ActorMaterializer()
   private val cluster      = Cluster(context.system)
 
-  startWith(State.GettingNodes,
-            Data(Set.empty, State.GettingNodes, nrOfRetries))
+  startWith(State.GettingNodes, Data(Set.empty, State.GettingNodes, nrOfRetries))
 
   // Getting nodes
 
@@ -298,8 +291,7 @@ final class ConstructrMachine(
       stop(FSM.Failure(s"Number of retries exhausted in $stateName!"))
     else
       goto(State.RetryScheduled).using(
-        stateData.copy(retryState = retryState,
-                       nrOfRetriesLeft = stateData.nrOfRetriesLeft - 1)
+        stateData.copy(retryState = retryState, nrOfRetriesLeft = stateData.nrOfRetriesLeft - 1)
       )
 
   private def maxCoordinationTimeout =

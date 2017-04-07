@@ -43,8 +43,7 @@ object ConstructrMultiNodeConfig {
   }
 }
 
-class ConstructrMultiNodeConfig(coordinationPort: Int)
-    extends MultiNodeConfig {
+class ConstructrMultiNodeConfig(coordinationPort: Int) extends MultiNodeConfig {
   import ConstructrMultiNodeConfig._
 
   commonConfig(ConfigFactory.load())
@@ -109,20 +108,17 @@ abstract class MultiNodeConstructrSpec(
       become {
         case "isMember" => sender() ! isMember
 
-        case MemberJoined(member)
-            if member.address == Cluster(context.system).selfAddress =>
+        case MemberJoined(member) if member.address == Cluster(context.system).selfAddress =>
           isMember = true
 
-        case MemberUp(member)
-            if member.address == Cluster(context.system).selfAddress =>
+        case MemberUp(member) if member.address == Cluster(context.system).selfAddress =>
           isMember = true
       }
     })
     within(20.seconds.dilated) {
       awaitAssert {
         implicit val timeout = Timeout(1.second.dilated)
-        val isMember = Await.result((listener ? "isMember").mapTo[Boolean],
-                                    1.second.dilated)
+        val isMember         = Await.result((listener ? "isMember").mapTo[Boolean], 1.second.dilated)
         isMember shouldBe true
       }
     }
