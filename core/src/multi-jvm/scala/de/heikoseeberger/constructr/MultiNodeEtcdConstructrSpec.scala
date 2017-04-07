@@ -21,16 +21,11 @@ import io.circe.Json
 import io.circe.parser.parse
 import java.util.Base64
 
-class MultiNodeEtcdConstructrSpecMultiJvmNode1
-    extends MultiNodeEtcdConstructrSpec
-class MultiNodeEtcdConstructrSpecMultiJvmNode2
-    extends MultiNodeEtcdConstructrSpec
-class MultiNodeEtcdConstructrSpecMultiJvmNode3
-    extends MultiNodeEtcdConstructrSpec
-class MultiNodeEtcdConstructrSpecMultiJvmNode4
-    extends MultiNodeEtcdConstructrSpec
-class MultiNodeEtcdConstructrSpecMultiJvmNode5
-    extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode1 extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode2 extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode3 extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode4 extends MultiNodeEtcdConstructrSpec
+class MultiNodeEtcdConstructrSpecMultiJvmNode5 extends MultiNodeEtcdConstructrSpec
 
 object MultiNodeEtcdConstructrSpec {
   def toNodes(s: String): Set[Address] = {

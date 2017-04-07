@@ -28,10 +28,7 @@ import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scala.concurrent.duration.{ Duration, DurationInt }
 import scala.concurrent.{ Await, Future }
 
-final class ConstructrMachineSpec
-    extends WordSpec
-    with Matchers
-    with BeforeAndAfterAll {
+final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndAfterAll {
   import ConstructrMachine._
   import Mockito._
 
