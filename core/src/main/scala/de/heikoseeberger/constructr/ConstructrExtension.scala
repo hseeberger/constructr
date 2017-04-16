@@ -20,7 +20,6 @@ import akka.actor.{ ExtendedActorSystem, Extension, ExtensionKey }
 
 object ConstructrExtension extends ExtensionKey[ConstructrExtension]
 
-final class ConstructrExtension private (system: ExtendedActorSystem)
-    extends Extension {
+final class ConstructrExtension private (system: ExtendedActorSystem) extends Extension {
   system.systemActorOf(Constructr.props, Constructr.Name)
 }

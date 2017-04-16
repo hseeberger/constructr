@@ -25,8 +25,7 @@ object Coordination {
 
   def apply(clusterName: String, system: ActorSystem): Coordination =
     try {
-      val className =
-        system.settings.config.getString("constructr.coordination.class-name")
+      val className = system.settings.config.getString("constructr.coordination.class-name")
       Class
         .forName(className)
         .getConstructor(classOf[String], classOf[ActorSystem])

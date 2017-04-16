@@ -21,7 +21,7 @@ import akka.actor.{ ActorSystem, AddressFromURIString }
 import akka.testkit.{ TestDuration, TestProbe }
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
-import scala.concurrent.duration.{ Duration, DurationInt, FiniteDuration }
+import scala.concurrent.duration.{ DurationInt, FiniteDuration }
 import scala.concurrent.{ Await, Awaitable }
 import scala.util.Random
 
@@ -36,10 +36,7 @@ object EtcdCoordinationSpec {
   }
 }
 
-class EtcdCoordinationSpec
-    extends WordSpec
-    with Matchers
-    with BeforeAndAfterAll {
+final class EtcdCoordinationSpec extends WordSpec with Matchers with BeforeAndAfterAll {
   import EtcdCoordinationSpec._
 
   private implicit val system = {
@@ -50,12 +47,13 @@ class EtcdCoordinationSpec
     ActorSystem("default", config)
   }
 
-  private val address  = AddressFromURIString("akka.tcp://default@a:2552")
+  private val address = AddressFromURIString("akka.tcp://default@a:2552")
+
   private val address2 = AddressFromURIString("akka.tcp://default@b:2552")
 
   "EtcdCoordination" should {
     "correctly interact with etcd" in {
-      val coordination = new EtcdCoordination(randomString(), system)
+      val coordination = new EtcdCoordination(math.abs(Random.nextInt).toString, system)
 
       resultOf(coordination.getNodes()) shouldBe 'empty
 
@@ -79,13 +77,10 @@ class EtcdCoordinationSpec
   }
 
   override protected def afterAll() = {
-    Await.ready(system.terminate(), Duration.Inf)
+    Await.ready(system.terminate(), 42.seconds)
     super.afterAll()
   }
 
-  private def resultOf[A](awaitable: Awaitable[A],
-                          max: FiniteDuration = 3.seconds.dilated) =
+  private def resultOf[A](awaitable: Awaitable[A], max: FiniteDuration = 3.seconds.dilated) =
     Await.result(awaitable, max)
-
-  private def randomString() = math.abs(Random.nextInt).toString
 }

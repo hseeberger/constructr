@@ -20,11 +20,7 @@ import akka.Done
 import akka.actor.FSM.Failure
 import akka.actor.{ Address, FSM, Props, Status }
 import akka.cluster.Cluster
-import akka.cluster.ClusterEvent.{
-  InitialStateAsEvents,
-  MemberJoined,
-  MemberUp
-}
+import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberJoined, MemberUp }
 import akka.pattern.pipe
 import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
@@ -32,7 +28,7 @@ import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object ConstructrMachine {
 
-  implicit class DurationOps(val duration: Duration) extends AnyVal {
+  implicit final class DurationOps(val duration: Duration) extends AnyVal {
 
     def toFinite: FiniteDuration =
       duration match {
@@ -43,18 +39,16 @@ object ConstructrMachine {
 
   sealed trait State
   final object State {
-    case object GettingNodes     extends State
-    case object Locking          extends State
-    case object Joining          extends State
-    case object AddingSelf       extends State
-    case object RefreshScheduled extends State
-    case object Refreshing       extends State
-    case object RetryScheduled   extends State
+    final case object GettingNodes     extends State
+    final case object Locking          extends State
+    final case object Joining          extends State
+    final case object AddingSelf       extends State
+    final case object RefreshScheduled extends State
+    final case object Refreshing       extends State
+    final case object RetryScheduled   extends State
   }
 
-  final case class Data(nodes: Set[Address],
-                        retryState: State,
-                        nrOfRetriesLeft: Int)
+  final case class Data(nodes: Set[Address], retryState: State, nrOfRetriesLeft: Int)
 
   final case class StateTimeoutException(state: State)
       extends RuntimeException(s"State timeout triggered in state $state!")
@@ -109,10 +103,10 @@ final class ConstructrMachine(
   )
 
   private implicit val mat = ActorMaterializer()
-  private val cluster      = Cluster(context.system)
 
-  startWith(State.GettingNodes,
-            Data(Set.empty, State.GettingNodes, nrOfRetries))
+  private val cluster = Cluster(context.system)
+
+  startWith(State.GettingNodes, Data(Set.empty, State.GettingNodes, nrOfRetries))
 
   // Getting nodes
 
@@ -129,8 +123,7 @@ final class ConstructrMachine(
 
     case Event(nodes: Set[Address] @unchecked, _) =>
       log.debug(s"Received nodes $nodes, going to Joining")
-      goto(State.Joining)
-        .using(stateData.copy(nodes = nodes, nrOfRetriesLeft = nrOfRetries))
+      goto(State.Joining).using(stateData.copy(nodes = nodes, nrOfRetriesLeft = nrOfRetries))
 
     case Event(Status.Failure(cause), _) =>
       log.warning(s"Failure in $stateName, going to GettingNodes: $cause")
@@ -153,14 +146,12 @@ final class ConstructrMachine(
   when(State.Locking, coordinationTimeout) {
     case Event(true, _) =>
       log.debug("Successfully locked, going to Joining")
-      goto(State.Joining).using(
-        stateData.copy(nodes = Set(selfNode), nrOfRetriesLeft = nrOfRetries)
-      )
+      goto(State.Joining)
+        .using(stateData.copy(nodes = Set(selfNode), nrOfRetriesLeft = nrOfRetries))
 
     case Event(false, _) =>
       log.warning("Couldn't acquire lock, going to GettingNodes")
-      goto(State.GettingNodes)
-        .using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
+      goto(State.GettingNodes).using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
 
     case Event(Status.Failure(cause), _) =>
       log.warning(s"Failure in $stateName, going to Locking: $cause")
@@ -201,8 +192,7 @@ final class ConstructrMachine(
       cluster.unsubscribe(self)
   }
 
-  private def seedNodes(nodes: Set[Address]) =
-    nodes.take(maxNrOfSeedNodes).toVector
+  private def seedNodes(nodes: Set[Address]) = nodes.take(maxNrOfSeedNodes).toVector
 
   // AddingSelf
 
@@ -217,8 +207,7 @@ final class ConstructrMachine(
   when(State.AddingSelf, coordinationTimeout) {
     case Event(Done, data) =>
       log.debug("Successfully added self, going to RefreshScheduled")
-      goto(State.RefreshScheduled)
-        .using(data.copy(nrOfRetriesLeft = nrOfRetries))
+      goto(State.RefreshScheduled).using(data.copy(nrOfRetriesLeft = nrOfRetries))
 
     case Event(Status.Failure(cause), _) =>
       log.warning(s"Failure in $stateName, going to AddingSelf: $cause")
@@ -232,8 +221,7 @@ final class ConstructrMachine(
   // RefreshScheduled
 
   onTransition {
-    case _ -> State.RefreshScheduled =>
-      log.debug("Transitioning to RefreshScheduled")
+    case _ -> State.RefreshScheduled => log.debug("Transitioning to RefreshScheduled")
   }
 
   when(State.RefreshScheduled, refreshInterval) {
@@ -247,16 +235,13 @@ final class ConstructrMachine(
   onTransition {
     case _ -> State.Refreshing =>
       log.debug(s"Transitioning to Refreshing")
-      coordination
-        .refresh(selfNode, addingSelfOrRefreshingTtl.toFinite)
-        .pipeTo(self)
+      coordination.refresh(selfNode, addingSelfOrRefreshingTtl.toFinite).pipeTo(self)
   }
 
   when(State.Refreshing, coordinationTimeout) {
     case Event(Done, _) =>
       log.debug("Successfully refreshed, going to RefreshScheduled")
-      goto(State.RefreshScheduled)
-        .using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
+      goto(State.RefreshScheduled).using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
 
     case Event(Status.Failure(cause), _) =>
       log.warning(s"Failure in $stateName, going to Refreshing: $cause")
@@ -298,8 +283,7 @@ final class ConstructrMachine(
       stop(FSM.Failure(s"Number of retries exhausted in $stateName!"))
     else
       goto(State.RetryScheduled).using(
-        stateData.copy(retryState = retryState,
-                       nrOfRetriesLeft = stateData.nrOfRetriesLeft - 1)
+        stateData.copy(retryState = retryState, nrOfRetriesLeft = stateData.nrOfRetriesLeft - 1)
       )
 
   private def maxCoordinationTimeout =

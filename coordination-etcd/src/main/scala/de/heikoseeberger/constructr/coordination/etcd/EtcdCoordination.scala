@@ -21,19 +21,8 @@ import akka.Done
 import akka.actor.{ ActorSystem, Address, AddressFromURIString }
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding.{ Get, Put }
-import akka.http.scaladsl.model.StatusCodes.{
-  Created,
-  NotFound,
-  OK,
-  PreconditionFailed
-}
-import akka.http.scaladsl.model.{
-  HttpRequest,
-  HttpResponse,
-  ResponseEntity,
-  StatusCode,
-  Uri
-}
+import akka.http.scaladsl.model.StatusCodes.{ Created, NotFound, OK, PreconditionFailed }
+import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, ResponseEntity, StatusCode, Uri }
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
@@ -54,8 +43,7 @@ object EtcdCoordination {
   private def toSeconds(duration: Duration) = (duration.toSeconds + 1).toString
 }
 
-final class EtcdCoordination(clusterName: String, system: ActorSystem)
-    extends Coordination {
+final class EtcdCoordination(clusterName: String, system: ActorSystem) extends Coordination {
   import EtcdCoordination._
 
   private implicit val mat = ActorMaterializer()(system)
@@ -134,7 +122,8 @@ final class EtcdCoordination(clusterName: String, system: ActorSystem)
     def writeLock() = {
       val uri =
         lockUri.withQuery(
-          ("prevExist" -> "false") +: ("ttl" -> toSeconds(ttl)) +:
+          ("prevExist" -> "false") +:
+          ("ttl"       -> toSeconds(ttl)) +:
           Uri.Query(lockUri.rawQueryString)
         )
       responseFor(Put(uri)).flatMap {
@@ -149,7 +138,8 @@ final class EtcdCoordination(clusterName: String, system: ActorSystem)
     def updateLock(lockHolder: String) = {
       val uri =
         lockUri.withQuery(
-          ("prevValue" -> lockHolder) +: ("ttl" -> toSeconds(ttl)) +:
+          ("prevValue" -> lockHolder) +:
+          ("ttl"       -> toSeconds(ttl)) +:
           Uri.Query(lockUri.rawQueryString)
         )
       responseFor(Put(uri)).flatMap {
@@ -168,11 +158,9 @@ final class EtcdCoordination(clusterName: String, system: ActorSystem)
     }
   }
 
-  override def addSelf(self: Address, ttl: FiniteDuration) =
-    addSelfOrRefresh(self, ttl)
+  override def addSelf(self: Address, ttl: FiniteDuration) = addSelfOrRefresh(self, ttl)
 
-  override def refresh(self: Address, ttl: FiniteDuration) =
-    addSelfOrRefresh(self, ttl)
+  override def refresh(self: Address, ttl: FiniteDuration) = addSelfOrRefresh(self, ttl)
 
   private def addSelfOrRefresh(self: Address, ttl: FiniteDuration) = {
     val node  = getUrlEncoder.encodeToString(self.toString.getBytes(UTF_8))
@@ -186,9 +174,7 @@ final class EtcdCoordination(clusterName: String, system: ActorSystem)
     }
   }
 
-  private def responseFor(request: HttpRequest) =
-    Http(system).singleRequest(request)
+  private def responseFor(request: HttpRequest) = Http(system).singleRequest(request)
 
-  private def ignore(entity: ResponseEntity) =
-    entity.dataBytes.runWith(Sink.ignore)
+  private def ignore(entity: ResponseEntity) = entity.dataBytes.runWith(Sink.ignore)
 }

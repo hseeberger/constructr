@@ -16,21 +16,9 @@
 
 package de.heikoseeberger.constructr
 
-import akka.actor.{
-  Actor,
-  ActorLogging,
-  ActorRef,
-  Props,
-  SupervisorStrategy,
-  Terminated
-}
+import akka.actor.{ Actor, ActorLogging, ActorRef, Props, SupervisorStrategy, Terminated }
 import akka.cluster.{ Cluster, Member }
-import akka.cluster.ClusterEvent.{
-  InitialStateAsEvents,
-  MemberExited,
-  MemberLeft,
-  MemberRemoved
-}
+import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberExited, MemberLeft, MemberRemoved }
 import akka.cluster.MemberStatus.Up
 import de.heikoseeberger.constructr.coordination.Coordination
 import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS }

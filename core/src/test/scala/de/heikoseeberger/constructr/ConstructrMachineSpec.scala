@@ -28,18 +28,17 @@ import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scala.concurrent.duration.{ Duration, DurationInt }
 import scala.concurrent.{ Await, Future }
 
-final class ConstructrMachineSpec
-    extends WordSpec
-    with Matchers
-    with BeforeAndAfterAll {
+final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndAfterAll {
   import ConstructrMachine._
   import Mockito._
 
   private implicit val system = ActorSystem()
-  private implicit val mat    = ActorMaterializer()
-  import system.dispatcher
+
+  private implicit val mat = ActorMaterializer()
 
   private val address = Cluster(system).selfAddress
+
+  import system.dispatcher
 
   "ConstructrMachine" should {
     "retry the given number of retries and then fail" in {

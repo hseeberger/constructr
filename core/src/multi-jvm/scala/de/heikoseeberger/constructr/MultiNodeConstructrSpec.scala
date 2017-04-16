@@ -17,7 +17,7 @@
 package de.heikoseeberger.constructr
 
 import akka.actor.ActorDSL.{ actor, Act }
-import akka.actor.Address
+import akka.actor.{ Actor, Address, Props }
 import akka.cluster.{ Cluster, ClusterEvent }
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding
@@ -34,7 +34,8 @@ import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
 object ConstructrMultiNodeConfig {
-  val coordinationHost = {
+
+  val coordinationHost: String = {
     val dockerHostPattern = """tcp://(\S+):\d{1,5}""".r
     sys.env
       .get("DOCKER_HOST")
@@ -43,8 +44,7 @@ object ConstructrMultiNodeConfig {
   }
 }
 
-class ConstructrMultiNodeConfig(coordinationPort: Int)
-    extends MultiNodeConfig {
+final class ConstructrMultiNodeConfig(coordinationPort: Int) extends MultiNodeConfig {
   import ConstructrMultiNodeConfig._
 
   commonConfig(ConfigFactory.load())
@@ -53,22 +53,21 @@ class ConstructrMultiNodeConfig(coordinationPort: Int)
     nodeConfig(role(port.toString))(
       ConfigFactory.parseString(
         s"""|akka.actor.provider            = akka.cluster.ClusterActorRefProvider
-          |akka.remote.netty.tcp.hostname = "127.0.0.1"
-          |akka.remote.netty.tcp.port     = $port
-          |constructr.coordination.host   = $coordinationHost
-          |constructr.coordination.port   = $coordinationPort
-          |""".stripMargin
+            |akka.remote.netty.tcp.hostname = "127.0.0.1"
+            |akka.remote.netty.tcp.port     = $port
+            |constructr.coordination.host   = $coordinationHost
+            |constructr.coordination.port   = $coordinationPort
+            |""".stripMargin
       )
     )
   }
 }
 
-abstract class MultiNodeConstructrSpec(
-    coordinationPort: Int,
-    delete: String,
-    get: String,
-    toNodes: String => Set[Address]
-) extends MultiNodeSpec(new ConstructrMultiNodeConfig(coordinationPort))
+abstract class MultiNodeConstructrSpec(coordinationPort: Int,
+                                       delete: String,
+                                       get: String,
+                                       toNodes: String => Set[Address])
+    extends MultiNodeSpec(new ConstructrMultiNodeConfig(coordinationPort))
     with FreeSpecLike
     with Matchers
     with BeforeAndAfterAll {
@@ -76,7 +75,7 @@ abstract class MultiNodeConstructrSpec(
   import RequestBuilding._
   import system.dispatcher
 
-  implicit val mat = ActorMaterializer()
+  protected implicit val mat = ActorMaterializer()
 
   "Constructr should manage an Akka cluster" in {
     runOn(roles.head) {
@@ -85,9 +84,7 @@ abstract class MultiNodeConstructrSpec(
           val coordinationStatus =
             Await.result(
               Http()
-                .singleRequest(
-                  Delete(s"http://$coordinationHost:$coordinationPort$delete")
-                )
+                .singleRequest(Delete(s"http://$coordinationHost:$coordinationPort$delete"))
                 .map(_.status),
               5.seconds.dilated // As this is the first request fired via `singleRequest`, creating the pool takes some time (probably)
             )
@@ -99,30 +96,26 @@ abstract class MultiNodeConstructrSpec(
     enterBarrier("coordination-started")
 
     ConstructrExtension(system)
-    val listener = actor(new Act {
+    val listener = system.actorOf(Props(new Actor {
       import ClusterEvent._
       var isMember = false
       Cluster(context.system).subscribe(self,
                                         InitialStateAsEvents,
                                         classOf[MemberJoined],
                                         classOf[MemberUp])
-      become {
-        case "isMember" => sender() ! isMember
-
-        case MemberJoined(member)
-            if member.address == Cluster(context.system).selfAddress =>
+      override def receive = {
+        case "isMember" =>
+          sender() ! isMember
+        case MemberJoined(member) if member.address == Cluster(context.system).selfAddress =>
           isMember = true
-
-        case MemberUp(member)
-            if member.address == Cluster(context.system).selfAddress =>
+        case MemberUp(member) if member.address == Cluster(context.system).selfAddress =>
           isMember = true
       }
-    })
+    }))
     within(20.seconds.dilated) {
       awaitAssert {
         implicit val timeout = Timeout(1.second.dilated)
-        val isMember = Await.result((listener ? "isMember").mapTo[Boolean],
-                                    1.second.dilated)
+        val isMember         = Await.result((listener ? "isMember").mapTo[Boolean], 1.second.dilated)
         isMember shouldBe true
       }
     }
@@ -134,9 +127,7 @@ abstract class MultiNodeConstructrSpec(
         val constructrNodes =
           Await.result(
             Http()
-              .singleRequest(
-                Get(s"http://$coordinationHost:$coordinationPort$get")
-              )
+              .singleRequest(Get(s"http://$coordinationHost:$coordinationPort$get"))
               .flatMap(Unmarshal(_).to[String].map(toNodes)),
             1.second.dilated
           )

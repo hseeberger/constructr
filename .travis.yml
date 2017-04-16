@@ -1,13 +1,14 @@
 language: scala
 
 scala:
-  - 2.11.8
-  - 2.12.1
+  - 2.11.11
+  - 2.12.2
 
 jdk:
   - oraclejdk8
 
-sbt_args: -Dakka.test.timefactor=3.0
+sbt_args:
+  -Dakka.test.timefactor=3.0
 
 sudo: required
 
