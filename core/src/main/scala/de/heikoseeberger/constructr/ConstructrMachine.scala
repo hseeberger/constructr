@@ -112,13 +112,19 @@ final class ConstructrMachine(
   onTransition {
     case _ -> State.GettingNodes =>
       log.debug("Transitioning to GettingNodes")
-      coordination.getNodes().pipeTo(self)
+      coordination.getNodes().map { nodes =>
+        if(nodes.contains(selfNode))
+          log.warning(s"Selfnode received in list of nodes $nodes. Will filter to prevent forming an island.")
+
+        nodes.filterNot(_ == selfNode)
+      } pipeTo self
   }
 
   when(State.GettingNodes, coordinationTimeout) {
     case Event(nodes: Set[Address] @unchecked, _) if nodes.isEmpty =>
       log.debug("Received empty nodes, going to Locking")
-      goto(State.Locking).using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
+      goto(State.Locking)
+        .using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
 
     case Event(nodes: Set[Address] @unchecked, _) =>
       log.debug(s"Received nodes $nodes, going to Joining")
