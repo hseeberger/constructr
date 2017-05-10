@@ -113,8 +113,10 @@ final class ConstructrMachine(
     case _ -> State.GettingNodes =>
       log.debug("Transitioning to GettingNodes")
       coordination.getNodes().map { nodes =>
-        if(nodes.contains(selfNode))
-          log.warning(s"Selfnode received in list of nodes $nodes. Will filter to prevent forming an island.")
+        if (nodes.contains(selfNode))
+          log.warning(
+            s"Selfnode received in list of nodes $nodes. Will filter to prevent forming an island."
+          )
 
         nodes.filterNot(_ == selfNode)
       } pipeTo self
