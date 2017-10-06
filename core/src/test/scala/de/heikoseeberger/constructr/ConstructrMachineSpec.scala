@@ -225,11 +225,11 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
         delayed(1.hour.dilated, system.scheduler)(boom()),
         boom(),
         boom(),
-        Future.successful(Done),
+        Future.successful(Done)
       )
 
       val nrOfRetries = 2
-      val monitor = TestProbe()
+      val monitor     = TestProbe()
       val machine = system.actorOf(
         Props(
           new ConstructrMachine(
