@@ -58,7 +58,8 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
             refreshInterval = 1.second.dilated,
             ttlFactor = 1.5,
             maxNrOfSeedNodes = 3,
-            joinTimeout = 100.millis.dilated
+            joinTimeout = 100.millis.dilated,
+            ignoreRefreshFailures = false
           )
         )
       )
@@ -115,7 +116,8 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
             refreshInterval = 1.second.dilated,
             ttlFactor = 1.5,
             maxNrOfSeedNodes = 3,
-            joinTimeout = 100.millis.dilated
+            joinTimeout = 100.millis.dilated,
+            ignoreRefreshFailures = false
           )
         )
       )
@@ -192,7 +194,7 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
       monitor.expectMsgPF(hint = "Refreshing -> RetryScheduled") {
         case FSM.Transition(_, State.Refreshing, State.RetryScheduled) => ()
       }
-      monitor.expectMsgPF(hint = "Refreshing -> Refreshing") {
+      monitor.expectMsgPF(hint = "RetryScheduled -> Refreshing") {
         case FSM.Transition(_, State.RetryScheduled, State.Refreshing) => ()
       }
       monitor.expectMsgPF(hint = "Refreshing -> RetryScheduled") {
@@ -200,6 +202,85 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
       }
       monitor.expectMsgPF(hint = "RetryScheduled -> Refreshing") {
         case FSM.Transition(_, State.RetryScheduled, State.Refreshing) => ()
+      }
+      monitor.expectMsgPF(hint = "Refreshing -> RefreshScheduled") {
+        case FSM.Transition(_, State.Refreshing, State.RefreshScheduled) => ()
+      }
+    }
+
+    "machine won't terminate on exceeded number of retries in Refreshing (if it's specified in configuration)" in {
+      val coordination = mock(classOf[Coordination])
+      when(coordination.getNodes()).thenReturn(noNodes())
+
+      when(coordination.lock(address, 1650.millis.dilated)).thenReturn(
+        Future.successful(true)
+      )
+
+      when(coordination.addSelf(address, 1500.millis.dilated)).thenReturn(
+        Future.successful(Done)
+      )
+
+      when(coordination.refresh(address, 1500.millis.dilated)).thenReturn(
+        Future.successful(Done),
+        delayed(1.hour.dilated, system.scheduler)(boom()),
+        boom(),
+        boom(),
+        Future.successful(Done),
+      )
+
+      val nrOfRetries = 2
+      val monitor = TestProbe()
+      val machine = system.actorOf(
+        Props(
+          new ConstructrMachine(
+            selfNode = address,
+            coordination = coordination,
+            coordinationTimeout = 100.millis.dilated,
+            nrOfRetries = nrOfRetries,
+            retryDelay = 100.millis.dilated,
+            refreshInterval = 1.second.dilated,
+            ttlFactor = 1.5,
+            maxNrOfSeedNodes = 3,
+            joinTimeout = 100.millis.dilated,
+            ignoreRefreshFailures = true
+          )
+        )
+      )
+      machine ! FSM.SubscribeTransitionCallBack(monitor.ref)
+
+      monitor.expectMsgPF(hint = "Current state GettingNodes") {
+        case FSM.CurrentState(_, State.GettingNodes) => ()
+      }
+      monitor.expectMsgPF(hint = "GettingNodes -> Locking") {
+        case FSM.Transition(_, State.GettingNodes, State.Locking) => ()
+      }
+      monitor.expectMsgPF(hint = "Locking -> Joining") {
+        case FSM.Transition(_, State.Locking, State.Joining) => ()
+      }
+      monitor.expectMsgPF(hint = "Joining -> AddingSelf") {
+        case FSM.Transition(_, State.Joining, State.AddingSelf) => ()
+      }
+      monitor.expectMsgPF(hint = "AddingSelf -> RefreshScheduled") {
+        case FSM.Transition(_, State.AddingSelf, State.RefreshScheduled) => ()
+      }
+      monitor.expectMsgPF(hint = "RefreshScheduled -> Refreshing") {
+        case FSM.Transition(_, State.RefreshScheduled, State.Refreshing) => ()
+      }
+
+      monitor.expectMsgPF(hint = "Refreshing -> RefreshScheduled") {
+        case FSM.Transition(_, State.Refreshing, State.RefreshScheduled) => ()
+      }
+      monitor.expectMsgPF(hint = "RefreshScheduled -> Refreshing") {
+        case FSM.Transition(_, State.RefreshScheduled, State.Refreshing) => ()
+      }
+
+      (1 to nrOfRetries + 1) foreach { _ =>
+        monitor.expectMsgPF(hint = "Refreshing -> RetryScheduled") {
+          case FSM.Transition(_, State.Refreshing, State.RetryScheduled) => ()
+        }
+        monitor.expectMsgPF(hint = "RetryScheduled -> Refreshing") {
+          case FSM.Transition(_, State.RetryScheduled, State.Refreshing) => ()
+        }
       }
       monitor.expectMsgPF(hint = "Refreshing -> RefreshScheduled") {
         case FSM.Transition(_, State.Refreshing, State.RefreshScheduled) => ()

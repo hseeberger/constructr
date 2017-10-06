@@ -75,13 +75,14 @@ final class Constructr private extends Actor with ActorLogging {
     def getDuration(key: String) =
       FiniteDuration(config.getDuration(key).toNanos, NANOSECONDS)
 
-    val coordinationTimeout = getDuration("constructr.coordination-timeout")
-    val nrOfRetries         = config.getInt("constructr.nr-of-retries")
-    val retryDelay          = getDuration("constructr.retry-delay")
-    val refreshInterval     = getDuration("constructr.refresh-interval")
-    val ttlFactor           = config.getDouble("constructr.ttl-factor")
-    val maxNrOfSeedNodes    = config.getInt("constructr.max-nr-of-seed-nodes")
-    val joinTimeout         = getDuration("constructr.join-timeout")
+    val coordinationTimeout   = getDuration("constructr.coordination-timeout")
+    val nrOfRetries           = config.getInt("constructr.nr-of-retries")
+    val retryDelay            = getDuration("constructr.retry-delay")
+    val refreshInterval       = getDuration("constructr.refresh-interval")
+    val ttlFactor             = config.getDouble("constructr.ttl-factor")
+    val maxNrOfSeedNodes      = config.getInt("constructr.max-nr-of-seed-nodes")
+    val joinTimeout           = getDuration("constructr.join-timeout")
+    val ignoreRefreshFailures = config.getBoolean("constructr.ignore-refresh-failures")
 
     context.actorOf(
       ConstructrMachine.props(
@@ -93,7 +94,8 @@ final class Constructr private extends Actor with ActorLogging {
         refreshInterval,
         ttlFactor,
         if (maxNrOfSeedNodes <= 0) Int.MaxValue else maxNrOfSeedNodes,
-        joinTimeout
+        joinTimeout,
+        ignoreRefreshFailures
       ),
       ConstructrMachine.Name
     )
