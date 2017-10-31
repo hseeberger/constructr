@@ -64,7 +64,8 @@ object ConstructrMachine {
       refreshInterval: FiniteDuration,
       ttlFactor: Double,
       maxNrOfSeedNodes: Int,
-      joinTimeout: FiniteDuration
+      joinTimeout: FiniteDuration,
+      ignoreRefreshFailures: Boolean
   ): Props =
     Props(
       new ConstructrMachine(
@@ -76,7 +77,8 @@ object ConstructrMachine {
         refreshInterval,
         ttlFactor,
         maxNrOfSeedNodes,
-        joinTimeout
+        joinTimeout,
+        ignoreRefreshFailures
       )
     )
 }
@@ -90,7 +92,8 @@ final class ConstructrMachine(
     refreshInterval: FiniteDuration,
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
-    joinTimeout: FiniteDuration
+    joinTimeout: FiniteDuration,
+    ignoreRefreshFailures: Boolean
 ) extends FSM[ConstructrMachine.State, ConstructrMachine.Data] {
   import ConstructrMachine._
   import context.dispatcher
@@ -261,11 +264,11 @@ final class ConstructrMachine(
 
     case Event(Status.Failure(cause), _) =>
       log.warning(s"Failure in $stateName, going to Refreshing: $cause")
-      retry(State.Refreshing)
+      retryRefreshing()
 
     case Event(StateTimeout, _) =>
       log.warning(s"Timeout in $stateName, going to Refreshing")
-      retry(State.Refreshing)
+      retryRefreshing()
   }
 
   // RetryScheduled
@@ -308,4 +311,12 @@ final class ConstructrMachine(
   private def minTtlFactor = 1 + maxCoordinationTimeout / refreshInterval
 
   private def addingSelfOrRefreshingTtl = refreshInterval * ttlFactor
+
+  private def retryRefreshing() =
+    if (ignoreRefreshFailures)
+      goto(State.RetryScheduled).using(
+        stateData.copy(retryState = State.Refreshing, nrOfRetriesLeft = nrOfRetries)
+      )
+    else
+      retry(State.Refreshing)
 }

@@ -65,13 +65,15 @@ constructr {
     port = 2379
   }
 
-  coordination-timeout = 3 seconds  // Maximum response time for coordination service (e.g. etcd)
-  join-timeout         = 15 seconds // Might depend on cluster size and network properties
-  max-nr-of-seed-nodes = 0          // Any nonpositive value means Int.MaxValue
-  nr-of-retries        = 2          // Nr. of tries are nr. of retries + 1
-  refresh-interval     = 30 seconds // TTL is refresh-interval * ttl-factor
-  retry-delay          = 3 seconds  // Give coordination service (e.g. etcd) some delay before retrying
-  ttl-factor           = 2.0        // Must be greater or equal 1 + ((coordination-timeout * (1 + nr-of-retries) + retry-delay * nr-of-retries)/ refresh-interval)!
+  coordination-timeout    = 3 seconds  // Maximum response time for coordination service (e.g. etcd)
+  join-timeout            = 15 seconds // Might depend on cluster size and network properties
+  max-nr-of-seed-nodes    = 0          // Any nonpositive value means Int.MaxValue
+  nr-of-retries           = 2          // Nr. of tries are nr. of retries + 1
+  refresh-interval        = 30 seconds // TTL is refresh-interval * ttl-factor
+  retry-delay             = 3 seconds  // Give coordination service (e.g. etcd) some delay before retrying
+  ttl-factor              = 2.0        // Must be greater or equal 1 + ((coordination-timeout * (1 + nr-of-retries) + retry-delay * nr-of-retries)/ refresh-interval)!
+  ignore-refresh-failures = false      // Ignore failures once machine is already in "Refreshing" state. It prevents from FSM being terminated due to exhausted number of retries.
+
 }
 ```
 
