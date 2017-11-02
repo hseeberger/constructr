@@ -68,13 +68,13 @@ lazy val `coordination-etcd` =
 lazy val library =
   new {
     object Version {
-      final val akka      = "2.5.1"
-      final val akkaHttp  = "10.0.6"
-      final val akkaLog4j = "1.4.0"
+      final val akka      = "2.5.6"
+      final val akkaHttp  = "10.0.10"
+      final val akkaLog4j = "1.5.0"
       final val circe     = "0.8.0"
-      final val log4j     = "2.8.2"
+      final val log4j     = "2.9.1"
       final val mockito   = "2.7.22"
-      final val scalaTest = "3.0.3"
+      final val scalaTest = "3.0.4"
     }
     val akkaActor            = "com.typesafe.akka"        %% "akka-actor"              % Version.akka
     val akkaCluster          = "com.typesafe.akka"        %% "akka-cluster"            % Version.akka
@@ -97,7 +97,9 @@ lazy val library =
 lazy val settings =
   commonSettings ++
   gitSettings ++
+  scalafmtSettings ++
   publishSettings ++
+  multiJvmSettings ++
   bintraySettings
 
 lazy val commonSettings =
@@ -124,6 +126,13 @@ lazy val gitSettings =
     git.useGitDescribe := true
   )
 
+lazy val scalafmtSettings =
+  Seq(
+    scalafmtOnCompile := true,
+    scalafmtOnCompile.in(Sbt) := false,
+    scalafmtVersion := "1.3.0"
+  )
+
 lazy val publishSettings =
   Seq(
     homepage := Some(url("https://github.com/hseeberger/constructr")),
@@ -142,9 +151,10 @@ lazy val bintraySettings =
   )
 
 lazy val multiJvmSettings =
-  automateScalafmtFor(MultiJvm) ++
-  headerSettings(Compile, Test, MultiJvm) ++
-  automateHeaderSettings(Compile, Test, MultiJvm) ++
+  com.typesafe.sbt.SbtMultiJvm.multiJvmSettings ++
+  inConfig(MultiJvm)(scalafmtSettings) ++
+  headerSettings(MultiJvm) ++
+  automateHeaderSettings(MultiJvm) ++
   Seq(
     unmanagedSourceDirectories.in(MultiJvm) := Seq(scalaSource.in(MultiJvm).value),
     test.in(Test) := test.in(MultiJvm).dependsOn(test.in(Test)).value
