@@ -22,9 +22,9 @@ import akka.actor.{ Address, FSM, Props, Status }
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberJoined, MemberUp }
 import akka.pattern.pipe
-import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
 import scala.concurrent.duration.{ Duration, FiniteDuration }
+import scala.util.{ Success, Failure => SFailure }
 
 object ConstructrMachine {
 
@@ -105,8 +105,7 @@ final class ConstructrMachine(
     s"ttl-factor must be greater or equal 1 + ((coordination-timeout * (1 + nr-of-retries) + retry-delay * nr-of-retries)/ refresh-interval), i.e. $minTtlFactor, but was $ttlFactor!"
   )
 
-  private implicit val mat = ActorMaterializer()
-  private val cluster      = Cluster(context.system)
+  private val cluster = Cluster(context.system)
 
   startWith(State.GettingNodes, Data(Set.empty, State.GettingNodes, nrOfRetries))
 
@@ -294,6 +293,18 @@ final class ConstructrMachine(
   // Initialization
 
   initialize()
+
+  // Performs resource cleanup on termination
+
+  onTermination {
+    case se: StopEvent =>
+      log.warning("StopEvent received, reason: {}. Closing Coordinator for resource cleanup",
+                  se.reason)
+      coordination.close().onComplete {
+        case Success(_)  => log.info("Coordinator closed successfully")
+        case SFailure(e) => log.error(e, "Coordinator failed to close")
+      }
+  }
 
   // Helpers
 

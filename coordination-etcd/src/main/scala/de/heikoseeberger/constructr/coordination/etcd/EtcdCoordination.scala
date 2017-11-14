@@ -162,6 +162,9 @@ final class EtcdCoordination(clusterName: String, system: ActorSystem) extends C
   override def refresh(self: Address, ttl: FiniteDuration) =
     addSelfOrRefresh(self, ttl)
 
+  override def close(): Future[Done] =
+    Future.successful(Done)
+
   private def addSelfOrRefresh(self: Address, ttl: FiniteDuration) = {
     val node  = getUrlEncoder.encodeToString(self.toString.getBytes(UTF_8))
     val query = Uri.Query("ttl" -> toSeconds(ttl), "value" -> self.toString)
