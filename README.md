@@ -34,7 +34,7 @@ member-joined │
     └───────────────────┘              └───────────────────┘
 ```
 
-If something goes finally wrong when interacting with the coordination service, e.g. a permanent timeout after a configurable number of retries, ConstructR terminates its `ActorSystem` in the spirit of "fail fast".
+If something goes finally wrong when interacting with the coordination service, e.g. a permanent timeout after a configurable number of retries, ConstructR terminates itself in the spirit of "failing fast".
 
 ``` scala
 // All releases including intermediate ones are published here,
@@ -76,6 +76,14 @@ constructr {
 
 }
 ```
+
+Exceeding the number of max retries will lead to internal failure of the `ConstructrExtension`. You can hook to this event in the following manner:
+``` scala
+val constructr = ConstructrExtension(system)
+constructr.registerOnFailure {
+    // do something if ConstructR failes
+}
+``` 
 
 ## Coordination
 

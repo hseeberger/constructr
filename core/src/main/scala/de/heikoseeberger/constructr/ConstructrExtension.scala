@@ -16,10 +16,32 @@
 
 package de.heikoseeberger.constructr
 
-import akka.actor.{ ExtendedActorSystem, Extension, ExtensionKey }
+import akka.actor.{ ActorSystem, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider }
 
-object ConstructrExtension extends ExtensionKey[ConstructrExtension]
+object ConstructrExtension extends ExtensionId[ConstructrExtension] with ExtensionIdProvider {
+
+  override def lookup(): ExtensionId[ConstructrExtension] = ConstructrExtension
+
+  override def createExtension(system: ExtendedActorSystem): ConstructrExtension =
+    new ConstructrExtension(system)
+
+  /**
+    * Java API
+    */
+  override def get(system: ActorSystem): ConstructrExtension = super.get(system)
+}
 
 final class ConstructrExtension private (system: ExtendedActorSystem) extends Extension {
-  system.systemActorOf(Constructr.props, Constructr.Name)
+
+  private[this] val supervisor = system.systemActorOf(Constructr.props, Constructr.Name)
+
+  def registerOnFailure[T](code: => T): Unit = {
+    val callback = new Runnable {
+      override def run(): Unit = code
+    }
+    registerOnFailure(callback)
+  }
+
+  def registerOnFailure(callback: Runnable): Unit =
+    supervisor ! Constructr.RegisterFailureHandler(callback)
 }

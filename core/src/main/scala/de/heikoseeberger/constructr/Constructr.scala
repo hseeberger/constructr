@@ -17,57 +17,66 @@
 package de.heikoseeberger.constructr
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props, SupervisorStrategy, Terminated }
-import akka.cluster.{ Cluster, Member }
+import akka.cluster.Cluster
 import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberExited, MemberLeft, MemberRemoved }
-import akka.cluster.MemberStatus.Up
 import de.heikoseeberger.constructr.coordination.Coordination
-import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS }
 
-object Constructr {
+import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS }
+import scala.util.control.NonFatal
+
+private[constructr] object Constructr {
 
   final val Name = "constructr"
 
-  def props: Props =
-    Props(new Constructr)
+  def props: Props = Props(new Constructr)
+
+  case class RegisterFailureHandler(callback: Runnable)
 }
 
-final class Constructr private extends Actor with ActorLogging {
+private[constructr] class Constructr private
+    extends Actor
+    with ActorLogging
+    with ConstructrFailureListening {
 
-  override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
+  import Constructr.RegisterFailureHandler
 
-  private val cluster = Cluster(context.system)
+  override val supervisorStrategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy
+
+  private[this] val cluster                         = Cluster(context.system)
+  private[this] var machineOption: Option[ActorRef] = None
+  private[this] var failureListeners                = Set.empty[ActorRef]
 
   if (cluster.settings.SeedNodes.isEmpty) {
-    log.info("Creating constructr-machine, because no seed-nodes defined")
+    log.info("Creating constructr-machine, because no seed-nodes are defined")
     cluster.subscribe(self,
                       InitialStateAsEvents,
                       classOf[MemberLeft],
                       classOf[MemberExited],
                       classOf[MemberRemoved])
-    context.become(active(context.watch(createConstructrMachine())))
+    machineOption = Some(context.watch(createConstructrMachine()))
   } else {
-    log.info("Stopping self, because seed-nodes defined")
+    log.info("Stopping ConstructR, because seed-nodes are defined in configuration.")
     context.stop(self)
   }
 
-  override def receive = Actor.emptyBehavior
+  override def receive: Receive = {
+    case Terminated(machine) if machineOption.contains(machine) =>
+      machineOption = None
 
-  private def active(machine: ActorRef): Receive = {
-    case Terminated(`machine`) =>
-      val selfAddress = cluster.selfAddress
-      def isSelfAndUp(member: Member) =
-        member.address == selfAddress && member.status == Up
-      if (cluster.state.members.exists(isSelfAndUp)) {
-        log.error("Leaving, because constructr-machine terminated!")
-        cluster.leave(selfAddress)
-      } else {
-        log.error("Terminating system, because constructr-machine terminated!")
-        context.system.terminate()
-      }
+    case Terminated(failureListener) if failureListeners.contains(failureListener) =>
+      failureListeners -= failureListener
+
+    case RegisterFailureHandler(callback) if machineOption.nonEmpty =>
+      failureListeners += context.actorOf(
+        Props(classOf[ConstructrFailureListener], machineOption.get, callback)
+      )
+
+    case RegisterFailureHandler(callback) if machineOption.isEmpty =>
+      executeFailureHandler(callback)
 
     case MemberRemoved(member, _) if member.address == cluster.selfAddress =>
-      log.error("Terminating system, because member has been removed!")
-      context.system.terminate()
+      log.warning("Stopping ConstructR because cluster member has been removed!")
+      context.stop(self)
   }
 
   private def createConstructrMachine() = {
@@ -100,4 +109,42 @@ final class Constructr private extends Actor with ActorLogging {
       ConstructrMachine.Name
     )
   }
+}
+
+private[constructr] class ConstructrFailureListener(machine: ActorRef, callback: Runnable)
+    extends Actor
+    with ActorLogging
+    with ConstructrFailureListening {
+
+  override def preStart(): Unit = {
+    super.preStart()
+    context.watch(machine)
+  }
+
+  override def postStop(): Unit = {
+    context.unwatch(machine)
+    super.postStop()
+  }
+
+  override def receive: Receive = {
+    case Terminated(`machine`) =>
+      try {
+        executeFailureHandler(callback)
+      } finally {
+        context.stop(self)
+      }
+  }
+}
+
+private[constructr] trait ConstructrFailureListening {
+  this: Actor with ActorLogging =>
+
+  def executeFailureHandler(callback: Runnable): Unit =
+    try {
+      callback.run()
+    } catch {
+      case NonFatal(e) =>
+        log.error(e, "ConstructR failure callback failed with [{}]", e.getMessage)
+    }
+
 }
