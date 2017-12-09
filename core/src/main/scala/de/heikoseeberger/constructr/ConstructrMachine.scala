@@ -105,7 +105,6 @@ final class ConstructrMachine(
     s"ttl-factor must be greater or equal 1 + ((coordination-timeout * (1 + nr-of-retries) + retry-delay * nr-of-retries)/ refresh-interval), i.e. $minTtlFactor, but was $ttlFactor!"
   )
 
-  private implicit val mat = ActorMaterializer()
   private val cluster      = Cluster(context.system)
 
   startWith(State.GettingNodes, Data(Set.empty, State.GettingNodes, nrOfRetries))
