@@ -82,6 +82,7 @@ final class Constructr private extends Actor with ActorLogging {
     val ttlFactor             = config.getDouble("constructr.ttl-factor")
     val maxNrOfSeedNodes      = config.getInt("constructr.max-nr-of-seed-nodes")
     val joinTimeout           = getDuration("constructr.join-timeout")
+    val abortOnJoinTimeout    = config.getBoolean("constructr.abort-on-join-timeout")
     val ignoreRefreshFailures = config.getBoolean("constructr.ignore-refresh-failures")
 
     context.actorOf(
@@ -95,6 +96,7 @@ final class Constructr private extends Actor with ActorLogging {
         ttlFactor,
         if (maxNrOfSeedNodes <= 0) Int.MaxValue else maxNrOfSeedNodes,
         joinTimeout,
+        abortOnJoinTimeout,
         ignoreRefreshFailures
       ),
       ConstructrMachine.Name

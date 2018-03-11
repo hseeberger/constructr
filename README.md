@@ -11,27 +11,27 @@ ConstructR utilizes a key-value coordination service like etcd to automate boots
 In a nutshell, ConstructR is a state machine which first tries to get the nodes from the coordination service. If none are available it tries to acquire a lock, e.g. via a CAS write for etcd, and uses itself or retries getting the nodes. Then it joins using these nodes as seed nodes. After that it adds its address to the nodes and starts the refresh loop:
 
 ```
-    ┌───────────────────┐              ┌───────────────────┐
-    │   GettingNodes    │◀─────────────│BeforeGettingNodes │
-    └───────────────────┘    delayed   └───────────────────┘
-              │     │                            ▲
-    non-empty │     └──────────────────────┐     │ failure
-              ▼               empty        ▼     │
-    ┌───────────────────┐              ┌───────────────────┐
-    │      Joining      │◀─────────────│      Locking      │
-    └───────────────────┘    success   └───────────────────┘
-              │
-member-joined │
-              ▼
-    ┌───────────────────┐
-    │    AddingSelf     │
-    └───────────────────┘
-              │     ┌────────────────────────────┐
-              │     │                            │
-              ▼     ▼                            │
-    ┌───────────────────┐              ┌───────────────────┐
-    │ RefreshScheduled  │─────────────▶│    Refreshing     │
-    └───────────────────┘              └───────────────────┘
+                  ┌───────────────────┐              ┌───────────────────┐
+              ┌──▶│   GettingNodes    │◀─────────────│BeforeGettingNodes │
+              │   └───────────────────┘    delayed   └───────────────────┘
+              │             │     │                            ▲
+  join-failed │   non-empty │     └──────────────────────┐     │ failure
+              │             ▼               empty        ▼     │
+              │   ┌───────────────────┐              ┌───────────────────┐
+              └───│      Joining      │◀─────────────│      Locking      │
+                  └───────────────────┘    success   └───────────────────┘
+                            │
+              member-joined │
+                            ▼
+                  ┌───────────────────┐
+                  │    AddingSelf     │
+                  └───────────────────┘
+                            │     ┌────────────────────────────┐
+                            │     │                            │
+                            ▼     ▼                            │
+                  ┌───────────────────┐              ┌───────────────────┐
+                  │ RefreshScheduled  │─────────────▶│    Refreshing     │
+                  └───────────────────┘              └───────────────────┘
 ```
 
 If something goes finally wrong when interacting with the coordination service, e.g. a permanent timeout after a configurable number of retries, ConstructR terminates its `ActorSystem` in the spirit of "fail fast".
@@ -67,6 +67,7 @@ constructr {
 
   coordination-timeout    = 3 seconds  // Maximum response time for coordination service (e.g. etcd)
   join-timeout            = 15 seconds // Might depend on cluster size and network properties
+  abort-on-join-timeout   = false      // Abort the attempt to join if true; otherwise restart the process from scratch
   max-nr-of-seed-nodes    = 0          // Any nonpositive value means Int.MaxValue
   nr-of-retries           = 2          // Nr. of tries are nr. of retries + 1
   refresh-interval        = 30 seconds // TTL is refresh-interval * ttl-factor

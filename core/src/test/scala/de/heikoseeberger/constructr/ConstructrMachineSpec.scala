@@ -42,7 +42,8 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
     "retry the given number of retries and then fail" in {
       val coordination = mock(classOf[Coordination])
       when(coordination.getNodes()).thenReturn(
-        boom(),
+        // delay first getNodes call for a bit, so as not to transition out of GettingNodes state too fast
+        delayed(50.millis.dilated, system.scheduler)(boom()),
         delayed(1.hour.dilated, system.scheduler)(noNodes())
       )
 
@@ -59,6 +60,7 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
             ttlFactor = 1.5,
             maxNrOfSeedNodes = 3,
             joinTimeout = 100.millis.dilated,
+            abortOnJoinTimeout = false,
             ignoreRefreshFailures = false
           )
         )
@@ -117,6 +119,7 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
             ttlFactor = 1.5,
             maxNrOfSeedNodes = 3,
             joinTimeout = 100.millis.dilated,
+            abortOnJoinTimeout = false,
             ignoreRefreshFailures = false
           )
         )
@@ -155,8 +158,11 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
       monitor.expectMsgPF(hint = "RetryScheduled -> Locking") {
         case FSM.Transition(_, State.RetryScheduled, State.Locking) => ()
       }
-      monitor.expectMsgPF(hint = "Locking -> GettingNodes") {
-        case FSM.Transition(_, State.Locking, State.GettingNodes) => ()
+      monitor.expectMsgPF(hint = "Locking -> BeforeGettingNodes") {
+        case FSM.Transition(_, State.Locking, State.BeforeGettingNodes) => ()
+      }
+      monitor.expectMsgPF(hint = "BeforeGettingNodes -> GettingNodes") {
+        case FSM.Transition(_, State.BeforeGettingNodes, State.GettingNodes) => ()
       }
 
       monitor.expectMsgPF(hint = "GettingNodes -> Locking") {
@@ -210,7 +216,10 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
 
     "machine won't terminate on exceeded number of retries in Refreshing (if it's specified in configuration)" in {
       val coordination = mock(classOf[Coordination])
-      when(coordination.getNodes()).thenReturn(noNodes())
+      when(coordination.getNodes()).thenReturn(
+        // delay first getNodes call for a bit, so as not to transition out of GettingNodes state too fast
+        delayed(50.millis.dilated, system.scheduler)(noNodes())
+      )
 
       when(coordination.lock(address, 1650.millis.dilated)).thenReturn(
         Future.successful(true)
@@ -242,6 +251,7 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
             ttlFactor = 1.5,
             maxNrOfSeedNodes = 3,
             joinTimeout = 100.millis.dilated,
+            abortOnJoinTimeout = false,
             ignoreRefreshFailures = true
           )
         )
@@ -288,7 +298,7 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
     }
   }
 
-  override protected def afterAll() = {
+  override protected def afterAll(): Unit = {
     Await.ready(system.terminate, Duration.Inf)
     super.afterAll()
   }
