@@ -16,25 +16,26 @@
 
 package de.heikoseeberger.constructr
 
-import akka.actor.ActorDSL.{ actor, Act }
-import akka.actor.Address
-import akka.cluster.{ Cluster, ClusterEvent }
+import akka.actor.{Actor, Address, PoisonPill, Props}
+import akka.cluster.{Cluster, ClusterEvent}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding
-import akka.http.scaladsl.model.StatusCodes.{ NotFound, OK }
+import akka.http.scaladsl.model.StatusCodes.{NotFound, OK}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.pattern.ask
-import akka.remote.testkit.{ MultiNodeConfig, MultiNodeSpec }
+import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.stream.ActorMaterializer
 import akka.testkit.TestDuration
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{ BeforeAndAfterAll, FreeSpecLike, Matchers }
+import org.mockito.Mockito._
+import org.scalatest.{BeforeAndAfterAll, FreeSpecLike, Matchers}
+
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
 object ConstructrMultiNodeConfig {
-  val coordinationHost = {
+  val coordinationHost: String = {
     val dockerHostPattern = """tcp://(\S+):\d{1,5}""".r
     sys.env
       .get("DOCKER_HOST")
@@ -98,14 +99,14 @@ abstract class MultiNodeConstructrSpec(
     enterBarrier("coordination-started")
 
     ConstructrExtension(system)
-    val listener = actor(new Act {
+    val listener = system.actorOf(Props(new Actor {
       import ClusterEvent._
       var isMember = false
       Cluster(context.system).subscribe(self,
                                         InitialStateAsEvents,
                                         classOf[MemberJoined],
                                         classOf[MemberUp])
-      become {
+      override def receive: Receive = {
         case "isMember" => sender() ! isMember
 
         case MemberJoined(member) if member.address == Cluster(context.system).selfAddress =>
@@ -114,7 +115,7 @@ abstract class MultiNodeConstructrSpec(
         case MemberUp(member) if member.address == Cluster(context.system).selfAddress =>
           isMember = true
       }
-    })
+    }))
     within(20.seconds.dilated) {
       awaitAssert {
         implicit val timeout = Timeout(1.second.dilated)
@@ -141,17 +142,42 @@ abstract class MultiNodeConstructrSpec(
       }
     }
 
+    enterBarrier("extension-killed")
+
+    val failureHandlers = 1.to(5).map(_ => mock(classOf[Runnable]))
+    failureHandlers.foreach(ConstructrExtension(system).registerOnFailure(_))
+    system.actorSelection(s"/system/${Constructr.Name}/${ConstructrMachine.Name}") ! PoisonPill
+
+    within(5.seconds.dilated) {
+      awaitAssert {
+        for (i <- failureHandlers.indices) {
+          verify(failureHandlers(i), times(1)).run()
+        }
+      }
+    }
+
+    enterBarrier("post-extension-killed")
+
+    val postFailureHandler = mock(classOf[Runnable])
+    ConstructrExtension(system).registerOnFailure(postFailureHandler)
+
+    within(5.seconds.dilated) {
+      awaitAssert {
+        verify(postFailureHandler, times(1)).run()
+      }
+    }
+
     enterBarrier("done")
   }
 
-  override def initialParticipants = roles.size
+  override def initialParticipants: Int = roles.size
 
-  override protected def beforeAll() = {
+  override protected def beforeAll(): Unit = {
     super.beforeAll()
     multiNodeSpecBeforeAll()
   }
 
-  override protected def afterAll() = {
+  override protected def afterAll(): Unit = {
     multiNodeSpecAfterAll()
     super.afterAll()
   }
