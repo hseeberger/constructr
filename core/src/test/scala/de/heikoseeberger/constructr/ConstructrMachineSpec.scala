@@ -46,6 +46,9 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
         delayed(50.millis.dilated, system.scheduler)(boom()),
         delayed(1.hour.dilated, system.scheduler)(noNodes())
       )
+      when(coordination.close()).thenReturn(
+        Future.successful(Done)
+      )
 
       val monitor = TestProbe()
       val machine = system.actorOf(
@@ -103,6 +106,9 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
       when(coordination.refresh(address, 1500.millis.dilated)).thenReturn(
         delayed(1.hour.dilated, system.scheduler)(boom()),
         boom(),
+        Future.successful(Done)
+      )
+      when(coordination.close()).thenReturn(
         Future.successful(Done)
       )
 
@@ -234,6 +240,10 @@ final class ConstructrMachineSpec extends WordSpec with Matchers with BeforeAndA
         delayed(1.hour.dilated, system.scheduler)(boom()),
         boom(),
         boom(),
+        Future.successful(Done)
+      )
+
+      when(coordination.close()).thenReturn(
         Future.successful(Done)
       )
 

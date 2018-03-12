@@ -55,11 +55,11 @@ trait Coordination {
   def getNodes(): Future[Set[Address]]
 
   /**
-    * Akquire a lock for bootstrapping the cluster (first node).
+    * Acquire a lock for bootstrapping the cluster (first node).
     *
     * @param self self node
     * @param ttl TTL for the lock
-    * @return true, if lock could be akquired, else false
+    * @return true, if lock could be acquired, else false
     */
   def lock(self: Address, ttl: FiniteDuration): Future[Boolean]
 
@@ -80,4 +80,11 @@ trait Coordination {
     * @return future signaling done
     */
   def refresh(self: Address, ttl: FiniteDuration): Future[Done]
+
+  /**
+    * Performs resource cleanup on termination
+    *
+    * @return future signaling done
+    */
+  def close(): Future[Done]
 }
