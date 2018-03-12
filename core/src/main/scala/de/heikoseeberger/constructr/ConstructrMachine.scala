@@ -17,13 +17,13 @@
 package de.heikoseeberger.constructr
 
 import akka.Done
-import akka.actor.FSM.Failure
 import akka.actor.{ Address, FSM, Props, Status }
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent.{ InitialStateAsEvents, MemberJoined, MemberUp }
 import akka.pattern.pipe
 import akka.stream.ActorMaterializer
 import de.heikoseeberger.constructr.coordination.Coordination
+
 import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object ConstructrMachine {
@@ -39,13 +39,14 @@ object ConstructrMachine {
 
   sealed trait State
   final object State {
-    case object GettingNodes     extends State
-    case object Locking          extends State
-    case object Joining          extends State
-    case object AddingSelf       extends State
-    case object RefreshScheduled extends State
-    case object Refreshing       extends State
-    case object RetryScheduled   extends State
+    case object BeforeGettingNodes extends State
+    case object GettingNodes       extends State
+    case object Locking            extends State
+    case object Joining            extends State
+    case object AddingSelf         extends State
+    case object RefreshScheduled   extends State
+    case object Refreshing         extends State
+    case object RetryScheduled     extends State
   }
 
   final case class Data(nodes: Set[Address], retryState: State, nrOfRetriesLeft: Int)
@@ -65,6 +66,7 @@ object ConstructrMachine {
       ttlFactor: Double,
       maxNrOfSeedNodes: Int,
       joinTimeout: FiniteDuration,
+      abortOnJoinTimeout: Boolean,
       ignoreRefreshFailures: Boolean
   ): Props =
     Props(
@@ -78,6 +80,7 @@ object ConstructrMachine {
         ttlFactor,
         maxNrOfSeedNodes,
         joinTimeout,
+        abortOnJoinTimeout,
         ignoreRefreshFailures
       )
     )
@@ -93,6 +96,7 @@ final class ConstructrMachine(
     ttlFactor: Double,
     maxNrOfSeedNodes: Int,
     joinTimeout: FiniteDuration,
+    abortOnJoinTimeout: Boolean,
     ignoreRefreshFailures: Boolean
 ) extends FSM[ConstructrMachine.State, ConstructrMachine.Data] {
   import ConstructrMachine._
@@ -108,6 +112,13 @@ final class ConstructrMachine(
   private val cluster = Cluster(context.system)
 
   startWith(State.GettingNodes, Data(Set.empty, State.GettingNodes, nrOfRetries))
+
+  // Before getting nodes
+
+  when(State.BeforeGettingNodes, retryDelay) {
+    case Event(StateTimeout, _) =>
+      goto(State.GettingNodes).using(Data(Set.empty, State.GettingNodes, nrOfRetries))
+  }
 
   // Getting nodes
 
@@ -162,8 +173,7 @@ final class ConstructrMachine(
 
     case Event(false, _) =>
       log.warning("Couldn't acquire lock, going to GettingNodes")
-      goto(State.GettingNodes)
-        .using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
+      goto(State.BeforeGettingNodes)
 
     case Event(Status.Failure(cause), _) =>
       log.warning(s"Failure in $stateName, going to Locking: $cause")
@@ -195,7 +205,10 @@ final class ConstructrMachine(
       goto(State.AddingSelf)
 
     case Event(StateTimeout, _) =>
-      stop(Failure("Timeout in Joining!"))
+      if (abortOnJoinTimeout)
+        stop(FSM.Failure("Timeout in Joining!"))
+      else
+        goto(State.GettingNodes).using(Data(Set.empty, State.GettingNodes, nrOfRetries))
   }
 
   onTransition {
@@ -286,6 +299,10 @@ final class ConstructrMachine(
   // Unhandled events
 
   whenUnhandled {
+    case Event(MemberJoined(member), _) if member.address == selfNode && isPreJoining =>
+      goto(State.AddingSelf).using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
+    case Event(MemberUp(member), _) if member.address == selfNode && isPreJoining =>
+      goto(State.AddingSelf).using(stateData.copy(nrOfRetriesLeft = nrOfRetries))
     // Unsubscribe might be late
     case Event(MemberJoined(_) | MemberUp(_), _) => stay()
   }
@@ -318,4 +335,10 @@ final class ConstructrMachine(
       )
     else
       retry(State.Refreshing)
+
+  private def isPreJoining: Boolean =
+    stateName match {
+      case State.BeforeGettingNodes | State.GettingNodes | State.Locking => true
+      case _                                                             => false
+    }
 }
